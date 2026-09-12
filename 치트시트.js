@@ -130,12 +130,16 @@ L.push('---');
 L.push('');
 L.push('## 2. T/F — 이벤트 선택지에서만 갈린다');
 L.push('');
+/* 글은 문자열 배열이거나 { 화자, 말 } 객체 배열이다 (이벤트1 이 대화형으로 전환됨).
+   양쪽을 다 받아야 한다 — 안 그러면 객체를 slice 해서 여기서 터진다 */
+const 첫줄 = e => { const x = e.글[0]; return typeof x === 'string' ? x : x.말; };
+
 const tf행 = [];
 for (const e of 스토리) {
   const T = e.선택.filter(c => c.축==='T'), F = e.선택.filter(c => c.축==='F');
   if (!T.length && !F.length) continue;
   const 라 = c => c.글 + (c.강도===2 ? ' *(강)*' : c.강도===1 ? ' *(약)*' : '');
-  tf행.push(`| ${e.id} | ${e.글[0].slice(0,22)} | ${T.map(라).join('<br>') || '—'} | ${F.map(라).join('<br>') || '—'} |`);
+  tf행.push(`| ${e.id} | ${첫줄(e).slice(0,22)} | ${T.map(라).join('<br>') || '—'} | ${F.map(라).join('<br>') || '—'} |`);
 }
 L.push('| # | 상황 | **T** 쪽 | **F** 쪽 |');
 L.push('|:-:|---|---|---|');
@@ -172,7 +176,7 @@ for (const e of 스토리) {
   const J = e.선택.filter(c=>c.축==='J'), Pp = e.선택.filter(c=>c.축==='P');
   if (!J.length && !Pp.length) continue;
   const 라 = c => c.글 + (c.강도===2 ? ' *(강)*' : c.강도===1 ? ' *(약)*' : '');
-  L.push(`| 이벤트 ${e.id} · ${e.글[0].slice(0,18)} | ${J.map(라).join('<br>') || '—'} | ${Pp.map(라).join('<br>') || '—'} |`);
+  L.push(`| 이벤트 ${e.id} · ${첫줄(e).slice(0,18)} | ${J.map(라).join('<br>') || '—'} | ${Pp.map(라).join('<br>') || '—'} |`);
 }
 L.push('');
 L.push('---');
