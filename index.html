@@ -69,14 +69,35 @@ body{background:var(--soft);color:var(--ink);
 /* ── 사무실 그림 (인라인 SVG) ── */
 /* 건물은 오른쪽, 말풍선은 왼쪽에 나란히.
    겹쳐 띄우면 세로를 더 먹고, 스크롤을 내리면 말풍선이 화면 밖으로 나간다 */
-.artrow{display:flex;align-items:flex-end;gap:8px;
+/* gap 이 있으면 풍경 땅선과 건물 땅선 사이가 그만큼 벌어져 땅이 끊겨 보인다.
+   말풍선 꼬리가 오른쪽으로 14px 나가지만 건물 SVG 의 그 자리는 빈 하늘이라 문제없다 */
+.artrow{display:flex;align-items:flex-end;gap:0;
         border:1.5px solid var(--line);border-radius:12px;
         background:linear-gradient(#f3f0ff 0%,#fbfaff 72%,#f6f4fd 100%);
         padding:8px 10px;margin-bottom:6px;min-height:104px}
-.artside{flex:1;min-width:0;padding-bottom:6px;display:flex;
-         flex-direction:column;justify-content:flex-end}
-.sidestage{font-size:15px;font-weight:bold;color:var(--accent)}
-.sidenum{font-size:12px;color:#9a93b8;margin-top:2px}
+/* padding-bottom 이 6 이면 말풍선이 땅선(바닥에서 8.6px)을 깔고 앉아 땅이 끊겨 보인다.
+   16 으로 띄워야 땅 위에 떠 있는 말처럼 읽힌다 */
+.artside{flex:1;min-width:0;position:relative;height:104px;padding-bottom:16px;
+         display:flex;flex-direction:column;justify-content:flex-end}
+/* 풍경은 오른쪽(건물 쪽) 끝에 붙는다. 화면이 좁으면 왼쪽부터 잘린다 —
+   줄여 그리면 도형 조합 수준에서 형체를 잃는다.
+   overflow 를 .artside 가 아니라 이 칸에만 거는 이유: 말풍선 꼬리가 오른쪽으로
+   14px 삐져나오는데 .artside 에 걸면 그 꼬리가 잘린다 */
+/* 왼쪽 끝을 흐리게 — 잘린 자동차·간판이 부스러기처럼 남지 않고 사라진다.
+   기기마다 잘리는 x 가 달라서(아이폰 184 · 갤럭시 209 · 큰 폰 120) 좌표로는 못 피한다 */
+.scenebox{position:absolute;inset:0;overflow:hidden;pointer-events:none;
+          -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34px);
+          mask-image:linear-gradient(90deg,transparent 0,#000 34px)}
+.scene{position:absolute;right:0;bottom:0;height:104px;width:auto;display:block}
+.scene .ground{fill:var(--line2)}
+.scene .tree{fill:#7fcf9f}
+.scene .trunk{fill:#b08968}
+.scene .bench{fill:#c6bedd}
+.scene .car{fill:#fff;stroke:var(--line2);stroke-width:1.5}
+.scene .wheel{fill:#8d86a8}
+.scene .post{fill:#b9b2d6}
+.scene .board{fill:#fff;stroke:var(--line2);stroke-width:1.5}
+.scene .boardline{fill:#d8d3ea}
 .stage-art{flex:none}
 .stage-art svg{display:block;height:104px;width:auto}
 
@@ -93,9 +114,9 @@ body{background:var(--soft);color:var(--ink);
 
 /* 말풍선 — 꼬리가 오른쪽 건물을 향한다.
    폭을 다 차지하면 짧은 대사에도 가로로 길게 늘어난다 → 내용만큼만 */
-.bubble{position:relative;background:var(--panel);border:1.5px solid var(--accent);
+.bubble{position:relative;z-index:1;background:var(--panel);border:1.5px solid var(--accent);
         border-radius:12px;padding:7px 10px;
-        width:fit-content;max-width:100%;margin-left:auto;
+        width:fit-content;max-width:100%;margin-right:auto;
         box-shadow:0 3px 10px rgba(80,60,160,.14);
         animation:말풍선 2.3s ease-out forwards}
 .bubble .who{display:block;font-size:10px;font-weight:bold;color:var(--accent);
@@ -117,11 +138,18 @@ body{background:var(--soft);color:var(--ink);
 /* 불 켜진 창이 저마다 다른 박자로 깜빡인다 — 사람이 일하고 있다는 신호 */
 @keyframes 창불{0%,100%{opacity:1}45%{opacity:.45}}
 .stage-art .win.on{animation:창불 var(--d,3s) ease-in-out var(--w,0s) infinite}
+/* 사람이 아주 약하게 들썩인다 — 서 있는 그림이 아니라 사는 그림이 된다 */
+@keyframes 사람흔들{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+.scene .person{animation:사람흔들 var(--d,3s) ease-in-out var(--w,0s) infinite}
 @keyframes 구름{from{transform:translateX(0)}to{transform:translateX(12px)}}
 .stage-art .c1{animation:구름 9s ease-in-out infinite alternate}
 .stage-art .c2{animation:구름 13s ease-in-out infinite alternate-reverse}
-@keyframes 승급솟기{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
-.stage-art svg{animation:승급솟기 .35s ease-out}
+/* 땅선은 이 g 밖에 있어서 안 움직인다 — 건물만 솟는다.
+   svg 에 걸면 10px = CSS 픽셀이지만 g 에 걸면 뷰박스 단위(1 ≈ 0.61px)라 16 으로 키워야
+   전과 같은 거리만큼 움직인다.
+   ※ 이름은 승급이지만 실제로는 다시 그릴 때마다 돈다 — 버튼 누를 때 반응이 있어 그대로 둔다 */
+@keyframes 건물솟기{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+.stage-art .rise{animation:건물솟기 .35s ease-out}
 
 /* 게이지·팝업 */
 @keyframes 팝등장{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
@@ -134,8 +162,8 @@ body{background:var(--soft);color:var(--ink);
 
 /* 움직임을 원치 않는 사람에게는 전부 끈다 */
 @media (prefers-reduced-motion:reduce){
-  .stage-art .win.on,.stage-art .c1,.stage-art .c2,.stage-art svg,
-  .pop,.typebox,.goal .need.ok,.bubble,.chat .ln{animation:none}
+  .stage-art .win.on,.stage-art .c1,.stage-art .c2,.stage-art .rise,
+  .pop,.typebox,.goal .need.ok,.bubble,.chat .ln,.scene .person{animation:none}
 }
 
 /* ── 분기 배치판 ── */
@@ -413,13 +441,18 @@ const CFG = {
    돈은 전부 + (버튼 눌러서 뜬 거라 손해보면 억울하다)
    돈 크기는 직원수 비례 → 규모가 커져도 스케일이 맞는다
    -------------------------------------------------------------------------- */
+/* 이벤트와 같은 { 화자, 말 } 표기다 — 화면에서 메신저 대화로 그려진다.
+   화자 '나' 는 오른쪽, 이름이 있으면 왼쪽 말풍선, 없으면 가운데 나레이션 */
 const 트리거상황 = {
-  채용: ['경력자와 신입이 있다.',
-         "경력: '여유있어 보인다. 그가 들어오면 편해질 것이다.'",
-         "신입: '간절해 보인다. 그가 들어오면 열심히 일할 것이다.'"],
-  해고: ['면담을 잡았다.', '"저... 아내가 임신을 했어요."'],
-  교육: ['교육비 예산이 나왔다.', '직원들을 다 보낼 수는 없을 것 같은데...'],
-  휴가: ['다들 지쳐 보인다.', '쉬게 해줘야겠는데...'],
+  채용: [{            말: '경력자와 신입의 이력서를 받았다.' },
+         { 화자:'경력', 말: '여유있어 보인다. 그가 들어오면 편해질 것이다.' },
+         { 화자:'신입', 말: '간절해 보인다. 그가 들어오면 열심히 일할 것이다.' }],
+  해고: [{            말: '면담을 잡았다.' },
+         { 화자:'직원', 말: '저... 아내가 임신을 했어요.' }],
+  교육: [{            말: '교육비 예산이 나왔다.' },
+         { 화자:'나',  말: '직원들을 다 보낼 수는 없을 것 같은데...' }],
+  휴가: [{ 화자:'나',  말: '다들 지쳐 보인다.' },
+         { 화자:'나',  말: '쉬게 해줘야겠는데...' }],
 };
 
 const 트리거 = {
@@ -1009,6 +1042,63 @@ const 건물틀 = [
   { w: 136, 층: 8, 열: 5, 이름: '본사' },          // 대기업
 ];
 
+/* ── 사무실 옆 풍경 ──
+   건물과 같은 viewBox 높이(170) · 같은 바닥(156)을 쓴다. 그래야 땅선이 한 줄로 이어져
+   건물과 딴 그림처럼 안 보인다.
+   오른쪽 끝(x=560)이 건물에 붙는 쪽이라 그쪽부터 채운다. 좁은 화면에서 잘리는 건 왼쪽이므로
+   덜 중요한 것(간판·주차)을 왼쪽에, 사람을 오른쪽에 둔다.
+   아이폰(375px)에서 보이는 범위는 대략 x 197~560 이다 */
+const 풍경W = 560, 풍경바닥 = 156;
+const 풍경틀 = [
+  // 스타트업 — 땅만. 1인 회사의 휑함을 그대로 둔다
+  { 사람: [], 나무: [], 벤치: [], 차: [], 간판: null },
+  { 사람: [512, 532], 나무: [[470, 13]], 벤치: [], 차: [], 간판: null },
+  { 사람: [440, 452, 496, 512, 534], 나무: [[378, 14], [470, 11]],
+    벤치: [416], 차: [300], 간판: null },
+  { 사람: [300, 348, 396, 408, 424, 506, 520, 536], 나무: [[330, 15], [452, 12]],
+    벤치: [372, 488], 차: [196, 262], 간판: 120 },
+];
+const 옷색 = ['#8c7ae6', '#6c5ce7', '#a29bfe', '#7f8ff4', '#9b8cf0'];
+
+function 풍경SVG(단계i) {
+  const t = 풍경틀[Math.max(0, Math.min(3, 단계i))];
+  const B = 풍경바닥, p = [];
+  p.push(`<svg class="scene" viewBox="0 0 ${풍경W} 170" aria-hidden="true">`);
+  p.push(`<rect class="ground" x="0" y="${B}" width="${풍경W}" height="2"/>`);
+
+  if (t.간판 !== null) {                                   // 입간판 — 부지 입구
+    const x = t.간판;
+    p.push(`<rect class="post" x="${x - 2}" y="${B - 28}" width="4" height="28"/>`);
+    p.push(`<rect class="board" x="${x - 17}" y="${B - 46}" width="34" height="18" rx="3"/>`);
+    p.push(`<rect class="boardline" x="${x - 11}" y="${B - 41}" width="22" height="2.5" rx="1.25"/>`);
+    p.push(`<rect class="boardline" x="${x - 11}" y="${B - 36}" width="14" height="2.5" rx="1.25"/>`);
+  }
+  for (const x of t.차) {                                  // 주차장
+    p.push(`<path class="car" d="M${x - 15} ${B - 13} L${x - 10} ${B - 18} L${x + 10} ${B - 18} L${x + 15} ${B - 13} Z"/>`);
+    p.push(`<rect class="car" x="${x - 26}" y="${B - 13}" width="52" height="8" rx="3.5"/>`);
+    p.push(`<circle class="wheel" cx="${x - 14}" cy="${B - 3.5}" r="3.5"/>`);
+    p.push(`<circle class="wheel" cx="${x + 14}" cy="${B - 3.5}" r="3.5"/>`);
+  }
+  for (const [x, r] of t.나무) {                            // 조경수
+    p.push(`<rect class="trunk" x="${x - 2}" y="${B - 11}" width="4" height="11"/>`);
+    p.push(`<circle class="tree" cx="${x}" cy="${B - r - 7}" r="${r}"/>`);
+  }
+  for (const x of t.벤치) {
+    p.push(`<rect class="bench" x="${x - 10}" y="${B - 16}" width="2.5" height="16"/>`);
+    p.push(`<rect class="bench" x="${x + 7.5}" y="${B - 16}" width="2.5" height="16"/>`);
+    p.push(`<rect class="bench" x="${x - 10}" y="${B - 16}" width="20" height="2.5" rx="1.25"/>`);
+    p.push(`<rect class="bench" x="${x - 15}" y="${B - 8}" width="30" height="3.5" rx="1.75"/>`);
+  }
+  t.사람.forEach((x, i) => {                                // 사람이 제일 앞에 선다
+    const c = 옷색[i % 옷색.length];
+    p.push(`<g class="person" style="--d:${(2.6 + (i % 4) * 0.5).toFixed(1)}s;--w:${((i % 5) * 0.35).toFixed(2)}s">`
+         + `<path fill="${c}" d="M${x - 5} ${B} L${x - 3.4} ${B - 13} L${x + 3.4} ${B - 13} L${x + 5} ${B} Z"/>`
+         + `<circle fill="${c}" cx="${x}" cy="${B - 17.2}" r="4.6"/></g>`);
+  });
+  p.push('</svg>');
+  return p.join('');
+}
+
 function 사무실SVG(단계i, 직원) {
   const b = 건물틀[Math.max(0, Math.min(3, 단계i))];
   /* 캔버스는 모든 단계가 같다 — 그래야 같은 배율로 그려져 큰 회사가 실제로 커 보인다.
@@ -1027,6 +1117,10 @@ function 사무실SVG(단계i, 직원) {
 
   const p = [];
   p.push(`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${b.이름}">`);
+  /* 땅선만 g 밖에 둔다. 안에 넣으면 건물이 솟을 때 땅까지 끌려 올라가
+     옆 풍경의 땅선과 어긋난다 (풍경은 이 애니메이션을 안 탄다) */
+  p.push(`<rect class="ground" x="0" y="${바닥}" width="${W}" height="2"/>`);
+  p.push(`<g class="rise">`);
   p.push(`<ellipse class="cloud c1" cx="42" cy="28" rx="19" ry="7"/>`);
   p.push(`<ellipse class="cloud c2" cx="163" cy="46" rx="14" ry="6"/>`);
   if (별관) p.push(`<rect class="annex" x="${x0 - 30}" y="${바닥 - 74}" width="26" height="74" rx="3"/>`);
@@ -1042,7 +1136,6 @@ function 사무실SVG(단계i, 직원) {
   }
   p.push(`<rect class="door" x="${x0 + b.w / 2 - 7}" y="${바닥 - 16}" width="14" height="16" rx="2"/>`);
   p.push(`<rect class="sign" x="${x0 + b.w / 2 - 16}" y="${y0 - 9}" width="32" height="7" rx="3.5"/>`);
-  p.push(`<rect class="ground" x="0" y="${바닥}" width="${W}" height="2"/>`);
   // 별관이 있으면 왼쪽 나무 자리가 겹친다
   if (!별관) {
     p.push(`<circle class="tree" cx="${x0 - 12}" cy="${바닥 - 9}" r="7"/>`);
@@ -1050,6 +1143,7 @@ function 사무실SVG(단계i, 직원) {
   }
   p.push(`<circle class="tree" cx="${x0 + b.w + 11}" cy="${바닥 - 7}" r="5.5"/>`);
   p.push(`<rect class="trunk" x="${x0 + b.w + 10}" y="${바닥 - 4}" width="2" height="4"/>`);
+  p.push(`</g>`);
   p.push(`</svg>`);
   return p.join('');
 }
@@ -1065,14 +1159,16 @@ function drawPlay() {
      말풍선을 건물 위에 겹치면 세로를 더 먹고, 스크롤을 내리면 안 보인다 */
   const 그림줄 = el('div', 'artrow');
   const side = el('div', 'artside');
+  /* 단계 이름과 직원 수는 상태바(#bar)가 이미 보여준다. 여기 또 쓰면 중복이고,
+     글씨가 풍경 위에 겹쳐 읽기도 나빠진다 */
+  const 풍경칸 = el('div', 'scenebox');
+  풍경칸.innerHTML = 풍경SVG(G.단계인덱스(S));
+  side.appendChild(풍경칸);
   if (V.말풍선 && 대사[V.말풍선]) {
     const bub = el('div', 'bubble');
     bub.appendChild(el('span', 'who', V.말풍선));
     bub.appendChild(el('span', 'say', 대사[V.말풍선]));
     side.appendChild(bub);
-  } else {
-    side.appendChild(el('div', 'sidestage', G.단계(S).이름));
-    side.appendChild(el('div', 'sidenum', S.직원 + '명'));
   }
   const art = el('div', 'stage-art');
   art.innerHTML = 사무실SVG(G.단계인덱스(S), S.직원);
@@ -1355,36 +1451,44 @@ function 트리거묻기(slot, done) {
   // 무산될 칸이면 묻지 않는다. 고르게 해놓고 "돈이 모자라 무산됐다" 를 띄우면 억울하다
   if (!opts || !G.선택가능(S, slot).가능) { done(() => 0); return; }
   const 상황 = G.트리거상황[slot] || [];
+  톡정지();
   팝업(p => {
-    p.appendChild(el('div', 'desc', 상황.join('\n')));
+    const chat = el('div', 'chat');
+    p.appendChild(chat);
     const box = el('div', 'opts');
-    opts.forEach((o, i) => {
-      const b = el('button', null, o.글);   // 수치는 숨긴다 (규칙 §4-2)
-      b.onclick = () => {
-        if (slot !== '채용') { 팝업닫기(); done(() => i); return; }
-        방침묻기(m => { 팝업닫기(); done(sl => sl === '채용방침' ? m : i); });
-      };
-      box.appendChild(b);
+    /* 이벤트와 같다 — 마지막 줄이 다 뜬 뒤에 선택지를 붙인다 */
+    톡뿌리기(chat, 상황, () => {
+      opts.forEach((o, i) => {
+        const b = el('button', null, o.글);   // 수치는 숨긴다 (규칙 §4-2)
+        b.onclick = () => {
+          box.innerHTML = '';
+          chat.appendChild(말풍선줄({ 화자:'나', 말: o.글 }));
+          팝맨아래();
+          // 채용만 두 번 묻는다. 첫 질문은 T/F 축, 두 번째는 실제 채용 방침이다
+          if (slot !== '채용') { 톡정지(); 팝업닫기(); done(() => i); return; }
+          방침묻기(p, chat, m => { 톡정지(); 팝업닫기(); done(sl => sl === '채용방침' ? m : i); });
+        };
+        box.appendChild(b);
+      });
+      p.appendChild(box);
+      팝맨아래();
     });
-    p.appendChild(box);
   });
 }
 
-/* 배치판 쪽 선택이라 수치를 공개한다 (규칙 §1 — 수치로 물으면 최적화가 측정되므로 가중치도 0.3) */
-function 방침묻기(done) {
-  팝업(p => {
-    p.appendChild(el('h2', null, '어떤 사람을 뽑을까?'));
+/* 배치판 쪽 선택이라 수치를 공개한다 (규칙 §1 — 수치로 물으면 최적화가 측정되므로 가중치도 0.3).
+   앞 질문이 이미 '경력/신입' 이라 여기서 또 경력/신입을 물으면 같은 걸 두 번 묻는 것처럼 보인다.
+   → 실력/인성 으로 나눈다. 실력위주가 T 쪽이고 신입 실력 희석이 덜하다 (runQuarter 의 실력위주) */
+function 방침묻기(p, chat, done) {
+  톡뿌리기(chat, [{ 화자:'나', 말:'어떤 사람을 뽑을까?' }], () => {
     const box = el('div', 'opts');
-    [['경력 위주로 뽑는다', '실력이 덜 희석된다 · 분위기−', 0],
-     ['신입 위주로 뽑는다', '실력이 많이 희석된다 · 분위기+', 1]]
-      .forEach(([t, e, i]) => {
-        const b = el('button');
-        b.appendChild(el('span', null, t));
-        b.appendChild(el('span', 'lk', e));
-        b.onclick = () => done(i);
-        box.appendChild(b);
-      });
+    ['실력 위주로 뽑는다', '인성 위주로 뽑는다'].forEach((t, i) => {
+      const b = el('button', null, t);
+      b.onclick = () => done(i);
+      box.appendChild(b);
+    });
     p.appendChild(box);
+    팝맨아래();
   });
 }
 
@@ -1689,6 +1793,6 @@ catch (e) { 저장막힘 = true; }
 draw();
 
 /* 테스트 하네스가 내부 상태를 들여다볼 수 있게 열어둔다 (브라우저에서도 무해) */
-window.__ui = { get S(){ return S; }, V, draw, 사무실SVG };
+window.__ui = { get S(){ return S; }, V, draw, 사무실SVG, 풍경SVG };
 </script>
 </html>

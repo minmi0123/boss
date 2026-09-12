@@ -211,5 +211,142 @@ for (const e of ctx.window.__story) {
 }
 ck(!탈, '전부 끝까지 돌아간다' + (탈 ? ' — ' + 탈 : ' (' + 돈판 + '가지)'));
 
+/* ── 인력관리 트리거 ──
+   과거에 여기서 choose 가 늘 0 을 돌려줘 F 가 통째로 0 이 된 적이 있다.
+   대화형으로 바꾸면서 또 깨지기 쉬운 자리라 끝까지 눌러본다 */
+console.log('\n[UI] 인력관리 트리거');
+const 트리거상황 = ev('G.트리거상황');
+ck(['채용','해고','교육','휴가'].every(k =>
+     트리거상황[k].every(l => typeof l === 'object' && typeof l.말 === 'string')),
+   '트리거 4종이 전부 { 화자, 말 } 로 바뀌었다');
+ck(트리거상황.채용.length === 3 && !트리거상황.채용[0].화자
+   && 트리거상황.채용[1].화자 === '경력' && 트리거상황.채용[2].화자 === '신입',
+   '채용 — 나레이션 1 + 경력/신입 말풍선 2');
+ck(트리거상황.해고[1].화자 === '직원' && !트리거상황.해고[1].말.startsWith('"'),
+   '해고 — 직원 말풍선, 따옴표 벗김');
+
+function 트리거열기(slot) {
+  ctx.새게임();
+  Object.assign(ctx.__ui.S, { 돈: 90000, 직원: 40 });
+  ctx.__ui.S.해금['인력관리'] = true;
+  let 받은 = undefined;
+  ctx.트리거묻기(slot, choose => { 받은 = choose; });
+  pump(30);
+  return () => 받은;
+}
+
+/* 채용 — 두 번 묻는다 */
+let 받기 = 트리거열기('채용');
+ck(클래스들(pop, 'chat').length === 1, '채용 트리거가 대화로 열린다');
+ck(줄().length === 3, '상황 3줄이 다 뜬다 (실제 ' + 줄().length + ')');
+ck(줄().map(n => n.className).join('|') === 'ln nar|ln you|ln you',
+   '나레이션 1 + 왼쪽 말풍선 2 (' + 줄().map(n => n.className).join('|') + ')');
+ck(텍스트(줄()[1]).includes('경력') && 텍스트(줄()[2]).includes('신입'),
+   '말풍선에 경력·신입 이름표가 붙는다');
+let 선택 = 클래스들(pop, 'opts');
+ck(선택.length === 1 && 선택[0].children.length === 2, '1차 선택지 2개 (경력/신입)');
+ck(!받기(), '아직 done 이 안 불렸다');
+
+선택[0].children[1].onclick();            // 신입을 뽑는다 = F = index 1
+/* 톡뿌리기 는 첫 줄을 동기로 붙인다 — 클릭 직후 이미 4번째(내 답) + 5번째(다음 질문)가 서 있다 */
+ck(줄()[3] && 줄()[3].className === 'ln me', '고른 답이 내 말풍선으로 붙는다');
+pump(30);
+ck(줄().length === 5, '"어떤 사람을 뽑을까?" 가 이어진다 (실제 ' + 줄().length + ')');
+ck(줄()[4].className === 'ln me', '다음 질문도 내 말풍선이다 (' + 줄()[4].className + ')');
+ck(텍스트(줄()[4]).some(t => t.includes('어떤 사람')), '두 번째 질문 문구');
+const 방침 = 클래스들(pop, 'opts').filter(b => b.children.length === 2).pop();
+ck(방침 && 방침.children.length === 2, '2차 선택지 2개 (실력/인성)');
+ck(텍스트(방침.children[0]).some(t => t.includes('실력 위주'))
+   && 텍스트(방침.children[1]).some(t => t.includes('인성 위주')),
+   '실력 위주 / 인성 위주 로 바뀌었다');
+
+방침.children[0].onclick();               // 실력 위주 = 0
+const choose = 받기();
+ck(typeof choose === 'function', '채용을 끝내면 choose 가 넘어온다');
+/* ★ 과거 버그 자리 — 두 물음의 답이 서로 안 섞여야 한다 */
+ck(choose('채용방침') === 0, "choose('채용방침') 이 방침 답(0)을 준다");
+ck(choose('아무거나') === 1, 'choose(그 외) 가 트리거 답(1=신입=F)을 준다');
+
+/* 해고·교육·휴가 — 한 번만 묻는다 */
+for (const [slot, 개수] of [['해고', 4], ['교육', 2], ['휴가', 2]]) {
+  받기 = 트리거열기(slot);
+  const o = 클래스들(pop, 'opts');
+  ck(o.length === 1 && o[0].children.length === 개수,
+     slot + ' 선택지 ' + 개수 + '개 (실제 ' + (o[0] ? o[0].children.length : 0) + ')');
+  o[0].children[0].onclick();
+  const c = 받기();
+  ck(typeof c === 'function' && c() === 0, slot + ' 은 한 번만 묻고 바로 끝난다');
+}
+
+/* ── 사무실 옆 풍경 ── */
+console.log('\n[UI] 사무실 옆 풍경');
+const 풍경SVG = ctx.__ui.풍경SVG;
+const 센 = (svg, cls) => (svg.match(new RegExp('class="' + cls + '"', 'g')) || []).length;
+const 기대 = [
+  { 단계:'스타트업', person:0, tree:0, bench:0, car:0, board:0 },
+  { 단계:'중소기업', person:2, tree:1, bench:0, car:0, board:0 },
+  { 단계:'중견기업', person:5, tree:2, bench:1, car:1, board:0 },
+  { 단계:'대기업',   person:8, tree:2, bench:2, car:2, board:1 },
+];
+for (let i = 0; i < 4; i++) {
+  const svg = 풍경SVG(i), e = 기대[i];
+  const 실제 = { person:센(svg,'person'), tree:센(svg,'tree'),
+                 bench:Math.round(센(svg,'bench')/4), car:Math.round(센(svg,'car')/2),
+                 board:센(svg,'board') };
+  const 맞나 = ['person','tree','bench','car','board'].every(k => 실제[k] === e[k]);
+  ck(맞나, e.단계 + ' — 사람' + 실제.person + ' 나무' + 실제.tree + ' 벤치' + 실제.bench
+        + ' 차' + 실제.car + ' 간판' + 실제.board);
+  ck(센(svg,'ground') === 1, e.단계 + ' 땅선이 있다');
+  ck(svg.indexOf('width="560"') > 0, e.단계 + ' 땅선이 칸 전체를 덮는다');
+}
+/* 캔버스를 벗어나면 좌우가 잘린 채 그려진다. 좌표를 전부 훑는다 */
+let 벗어남 = null, 최소x = 999;
+for (let i = 0; i < 4; i++) {
+  /* \s 로 앞을 막아야 한다. 안 막으면 rx="1.25" 의 rx 가 x 로 잡혀 0 에 가까운 값이 섞인다 */
+  const xs = (풍경SVG(i).match(/\s(?:x|cx)="(-?[\d.]+)"/g) || [])
+    .map(t => parseFloat(t.replace(/[^-\d.]/g, '')));
+  for (const x of xs) {
+    if (x < 0 || x > 560) 벗어남 = '단계' + i + ' x=' + x;
+    if (x > 0 && x < 최소x) 최소x = x;
+  }
+}
+ck(!벗어남, '모든 좌표가 캔버스(0~560) 안에 있다' + (벗어남 ? ' — ' + 벗어남 : ''));
+ck(최소x >= 100, '왼쪽 여백이 남아 있다 (최소 x=' + 최소x + ')');
+
+/* 땅선이 .rise 밖에 있어야 건물이 솟을 때 땅이 안 끌려간다.
+   안으로 들어가면 옆 풍경의 땅선과 어긋나는데, 0.35초짜리라 눈으로는 놓치기 쉽다 */
+{
+  const svg = ctx.__ui.사무실SVG(1, 60);
+  const g = svg.indexOf('<g class="rise">');
+  ck(g > 0, '건물이 .rise 로 묶여 있다');
+  ck(svg.indexOf('class="ground"') < g, '땅선이 .rise 앞(=밖)에 있다');
+  ck((svg.match(/<g class="rise">/g) || []).length === 1
+     && (svg.match(/<\/g>/g) || []).length === 1, '.rise 가 정확히 하나이고 닫혀 있다');
+}
+
+/* 땅선이 건물 SVG 와 같은 높이인지 — 다르면 두 그림이 따로 논다 */
+const 건물 = ctx.__ui.사무실SVG(0, 1);
+const 건물바닥 = (건물.match(/class="ground" x="0" y="(\d+)"/) || [])[1];
+const 풍경바닥 = (풍경SVG(0).match(/class="ground" x="0" y="(\d+)"/) || [])[1];
+ck(건물바닥 === 풍경바닥 && 건물바닥 === '156',
+   '땅선 y 가 건물과 같다 (건물 ' + 건물바닥 + ' / 풍경 ' + 풍경바닥 + ')');
+ck(건물.indexOf('viewBox="0 0 200 170"') > 0 && 풍경SVG(0).indexOf('0 0 560 170') > 0,
+   'viewBox 높이가 170 으로 같다 — 배율이 같아야 땅선이 이어진다');
+
+/* ── 화면에 실제로 붙나 ── */
+console.log('\n[UI] 회사 탭 배치');
+ctx.새게임();
+ctx.__ui.V.화면 = 'play'; ctx.__ui.V.탭 = '회사';
+ctx.draw();
+const 회사 = document.getElementById('screen');
+ck(클래스들(회사, 'scenebox').length === 1, '풍경 칸이 붙는다');
+ck(클래스들(회사, 'sidestage').length === 0, '단계 이름 글씨가 빠졌다 (상태바와 중복)');
+ck(클래스들(회사, 'sidenum').length === 0, '직원 수 글씨가 빠졌다');
+ck(클래스들(document.getElementById('bar'), 'stg').length === 1, '단계 이름은 상태바에 그대로 있다');
+ctx.__ui.V.말풍선 = '영업';
+ctx.draw();
+ck(클래스들(회사, 'scenebox').length === 1, '말풍선이 떠도 풍경은 남는다 (겹침)');
+ck(클래스들(회사, 'bubble').length === 1, '말풍선도 같이 뜬다');
+
 console.log('\n' + (실패 ? '✗ ' + 실패 + '건 실패' : '전부 통과'));
 process.exit(실패 ? 1 : 0);
