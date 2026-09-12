@@ -44,7 +44,8 @@ body{background:var(--soft);color:var(--ink);
 /* 안전 구간(40~75) 표시 — 어디가 좋은지 모르면 답답하다 (기획 §3) */
 .g .track::before{content:'';position:absolute;left:40%;width:35%;top:0;bottom:0;
                   background:var(--accent2)}
-.g .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;transition:width .18s linear}
+.g .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;
+         transition:width .45s cubic-bezier(.22,1,.36,1),background .3s ease}
 .g .val{width:26px;text-align:right;flex:none;font-variant-numeric:tabular-nums;font-weight:bold}
 .goal{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:7px;
       padding-top:7px;border-top:1px dashed var(--line)}
@@ -56,26 +57,103 @@ body{background:var(--soft);color:var(--ink);
 
 /* ── 본문 ── */
 #screen{flex:1;padding:12px 11px 16px;overflow-y:auto}
-.stage-art{display:flex;align-items:center;justify-content:center;
-           height:112px;margin-bottom:12px;border:1.5px dashed var(--line2);
-           border-radius:10px;background:var(--panel);color:#9a93b8;font-size:12px}
+/* 회사 탭만 — 사무실과 배치판을 고정하고 카드만 스크롤한다.
+   말풍선이 사무실 위에 뜨는데, 인력관리 카드가 접힘 아래라 스크롤을 내리면 안 보였다.
+   position:sticky 대신 flex 로 스크롤 영역을 따로 만든다 (겹침·그림자 문제가 없다) */
+#screen.play{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
+#screen.play .stickytop{flex:none}
+#screen.play .scrollzone{flex:1;overflow-y:auto;padding:9px 0 14px;
+                         border-top:1px solid var(--line);margin-top:2px}
+/* 스크롤 영역이 좁으므로 사무실을 낮춘다 */
+#screen.play .stage-art svg{height:104px}
+/* ── 사무실 그림 (인라인 SVG) ── */
+/* 건물은 오른쪽, 말풍선은 왼쪽에 나란히.
+   겹쳐 띄우면 세로를 더 먹고, 스크롤을 내리면 말풍선이 화면 밖으로 나간다 */
+.artrow{display:flex;align-items:flex-end;gap:8px;
+        border:1.5px solid var(--line);border-radius:12px;
+        background:linear-gradient(#f3f0ff 0%,#fbfaff 72%,#f6f4fd 100%);
+        padding:8px 10px;margin-bottom:6px;min-height:104px}
+.artside{flex:1;min-width:0;padding-bottom:6px;display:flex;
+         flex-direction:column;justify-content:flex-end}
+.sidestage{font-size:15px;font-weight:bold;color:var(--accent)}
+.sidenum{font-size:12px;color:#9a93b8;margin-top:2px}
+.stage-art{flex:none}
+.stage-art svg{display:block;height:104px;width:auto}
+
+.stage-art .body{fill:#fff;stroke:var(--line2);stroke-width:1.5}
+.stage-art .annex{fill:#f3f0ff;stroke:var(--line2);stroke-width:1.5}
+.stage-art .win{fill:#e9e5f7}
+.stage-art .win.on{fill:var(--hot)}
+.stage-art .door{fill:var(--accent);opacity:.8}
+.stage-art .sign{fill:var(--accent)}
+.stage-art .ground{fill:var(--line2)}
+.stage-art .tree{fill:#7fcf9f}
+.stage-art .trunk{fill:#b08968}
+.stage-art .cloud{fill:#fff;opacity:.85}
+
+/* 말풍선 — 꼬리가 오른쪽 건물을 향한다.
+   폭을 다 차지하면 짧은 대사에도 가로로 길게 늘어난다 → 내용만큼만 */
+.bubble{position:relative;background:var(--panel);border:1.5px solid var(--accent);
+        border-radius:12px;padding:7px 10px;
+        width:fit-content;max-width:100%;margin-left:auto;
+        box-shadow:0 3px 10px rgba(80,60,160,.14);
+        animation:말풍선 2.3s ease-out forwards}
+.bubble .who{display:block;font-size:10px;font-weight:bold;color:var(--accent);
+             letter-spacing:.5px;margin-bottom:1px}
+.bubble .say{display:block;font-size:13px;font-weight:bold;line-height:1.35}
+.bubble::before,.bubble::after{content:'';position:absolute;top:50%;
+        border:7px solid transparent;border-left-color:var(--accent);
+        transform:translateY(-50%)}
+.bubble::before{right:-14px}
+.bubble::after{right:-11.5px;border-left-color:var(--panel)}
+@keyframes 말풍선{
+  0%{opacity:0;transform:translateX(-6px) scale(.92)}
+  10%{opacity:1;transform:translateX(0) scale(1.03)}
+  16%{transform:translateX(0) scale(1)}
+  84%{opacity:1;transform:translateX(0) scale(1)}
+  100%{opacity:0;transform:translateX(0) scale(.98)}
+}
+
+/* 불 켜진 창이 저마다 다른 박자로 깜빡인다 — 사람이 일하고 있다는 신호 */
+@keyframes 창불{0%,100%{opacity:1}45%{opacity:.45}}
+.stage-art .win.on{animation:창불 var(--d,3s) ease-in-out var(--w,0s) infinite}
+@keyframes 구름{from{transform:translateX(0)}to{transform:translateX(12px)}}
+.stage-art .c1{animation:구름 9s ease-in-out infinite alternate}
+.stage-art .c2{animation:구름 13s ease-in-out infinite alternate-reverse}
+@keyframes 승급솟기{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.stage-art svg{animation:승급솟기 .35s ease-out}
+
+/* 게이지·팝업 */
+@keyframes 팝등장{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.pop{animation:팝등장 .18s ease-out}
+@keyframes 진단반짝{0%,100%{box-shadow:0 0 0 0 rgba(108,92,231,.35)}
+                   50%{box-shadow:0 0 0 9px rgba(108,92,231,0)}}
+.typebox{animation:진단반짝 1.6s ease-out 2}
+@keyframes 칩달성{from{transform:scale(1)}50%{transform:scale(1.12)}to{transform:scale(1)}}
+.goal .need.ok{animation:칩달성 .4s ease-out}
+
+/* 움직임을 원치 않는 사람에게는 전부 끈다 */
+@media (prefers-reduced-motion:reduce){
+  .stage-art .win.on,.stage-art .c1,.stage-art .c2,.stage-art svg,
+  .pop,.typebox,.goal .need.ok,.bubble{animation:none}
+}
 
 /* ── 분기 배치판 ── */
 .plan{border:1.5px solid var(--line2);border-radius:10px;background:var(--panel);
-      padding:9px;margin-bottom:12px}
+      padding:8px;margin-bottom:6px}
 .plan .hd{display:flex;justify-content:space-between;align-items:center;
           font-size:12px;color:#66607e;margin-bottom:7px}
 .qrow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .q{border:1.5px solid var(--line);border-radius:8px;background:var(--soft);
-   min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+   min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;
    font-size:12.5px;font-weight:bold;cursor:pointer;padding:4px 2px;text-align:center}
 .q .qn{font-size:10px;font-weight:normal;color:#9a93b8;margin-bottom:2px}
 .q.filled{background:var(--accent2);border-color:var(--accent)}
 .q.cur{box-shadow:0 0 0 2px var(--accent)}
 .q.done{opacity:.45}
 .q .empty{color:#b5aed0;font-weight:normal}
-.go{width:100%;margin-top:9px;border:1.5px solid var(--accent);border-radius:8px;
-    background:var(--accent);color:#fff;padding:11px;font:inherit;font-size:15px;
+.go{width:100%;margin-top:7px;border:1.5px solid var(--accent);border-radius:8px;
+    background:var(--accent);color:#fff;padding:9px;font:inherit;font-size:15px;
     font-weight:bold;cursor:pointer}
 .go:disabled{opacity:.35;cursor:not-allowed}
 
@@ -701,6 +779,20 @@ const G = window.__game;
 /* 로직 <script> 가 최상위에 const CFG 를 이미 선언했다.
    여기서 같은 이름을 또 쓰면 "Identifier 'CFG' has already been declared" 로 페이지가 통째로 죽는다 */
 const 설정 = G.CFG;
+const 대사 = (typeof window !== 'undefined' && window.__대사) || {};
+
+/* 말풍선 — 배치판 버튼을 누르면 사무실 위에 잠깐 뜬다.
+   draw() 가 화면을 통째로 다시 그리므로 DOM 에 직접 붙이지 않고 상태로 들고 있는다 */
+let 말풍선타이머 = null;
+function 말풍선띄우기(slot) {
+  if (!대사[slot]) return;
+  V.말풍선 = slot;
+  clearTimeout(말풍선타이머);
+  말풍선타이머 = setTimeout(() => {
+    V.말풍선 = null;
+    if (V.화면 === 'play' && V.탭 === '회사') draw();
+  }, 2300);
+}
 
 const KEY  = 'boss_v1';        // 진행 상태
 const HKEY = 'boss_history';   // 진단서 변천사 — 초기화해도 남는다 (기획 §8)
@@ -856,11 +948,88 @@ function 효과글(slot) {
   return p.join(' · ');
 }
 
+/* ========================= 사무실 그림 =========================
+   그림 파일을 쓰지 않는다 — 인라인 SVG 로 그린다.
+   기획 §12 "단일 HTML · 외부 의존 0" 을 지키면서 단계별 사무실을 채운다.
+   단계가 오르면 건물이 커지고, 직원이 늘면 불 켜진 창이 늘어난다
+   ============================================================== */
+const 건물틀 = [
+  { w: 62,  층: 3, 열: 2, 이름: '작은 사무실' },   // 스타트업
+  { w: 88,  층: 4, 열: 3, 이름: '사옥' },          // 중소기업
+  { w: 112, 층: 6, 열: 4, 이름: '중견 사옥' },     // 중견기업
+  { w: 136, 층: 8, 열: 5, 이름: '본사' },          // 대기업
+];
+
+function 사무실SVG(단계i, 직원) {
+  const b = 건물틀[Math.max(0, Math.min(3, 단계i))];
+  /* 캔버스는 모든 단계가 같다 — 그래야 같은 배율로 그려져 큰 회사가 실제로 커 보인다.
+     8층(138)이 들어가도록 높이를 잡는다. 128 이면 대기업 건물이 위로 잘렸다 */
+  const W = 200, H = 170, 바닥 = H - 14;
+  const 창w = 9, 창h = 8, 간격x = (b.w - b.열 * 창w) / (b.열 + 1);
+  const 건물h = b.층 * 16 + 10;
+  const x0 = Math.round((W - b.w) / 2), y0 = 바닥 - 건물h;
+  const 총창 = b.층 * b.열;
+  /* 불 켜진 창 = 그 단계의 직원 문턱까지 얼마나 왔나.
+     전역 기준으로 하면 초반에 한 칸만 켜져 썰렁하다.
+     이렇게 하면 그림 자체가 승급 진행도를 보여준다 */
+  const 다음 = (설정.승급조건[단계i + 1] || {}).직원 || 250;
+  const 켠창 = Math.max(1, Math.min(총창, Math.round(총창 * 직원 / 다음)));
+  const 별관 = 단계i >= 3;
+
+  const p = [];
+  p.push(`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${b.이름}">`);
+  p.push(`<ellipse class="cloud c1" cx="42" cy="28" rx="19" ry="7"/>`);
+  p.push(`<ellipse class="cloud c2" cx="163" cy="46" rx="14" ry="6"/>`);
+  if (별관) p.push(`<rect class="annex" x="${x0 - 30}" y="${바닥 - 74}" width="26" height="74" rx="3"/>`);
+  p.push(`<rect class="body" x="${x0}" y="${y0}" width="${b.w}" height="${건물h}" rx="4"/>`);
+  let n = 0;
+  for (let r = 0; r < b.층; r++) for (let c = 0; c < b.열; c++) {
+    const on = n < 켠창;
+    const wx = (x0 + 간격x * (c + 1) + 창w * c).toFixed(1);
+    const wy = y0 + 12 + r * 16;
+    p.push(`<rect class="win${on ? ' on' : ''}" x="${wx}" y="${wy}" width="${창w}" height="${창h}" rx="1.5"`
+         + (on ? ` style="--d:${(2.4 + (n % 5) * 0.7).toFixed(1)}s;--w:${(n % 7) * 0.4}s"` : '') + `/>`);
+    n++;
+  }
+  p.push(`<rect class="door" x="${x0 + b.w / 2 - 7}" y="${바닥 - 16}" width="14" height="16" rx="2"/>`);
+  p.push(`<rect class="sign" x="${x0 + b.w / 2 - 16}" y="${y0 - 9}" width="32" height="7" rx="3.5"/>`);
+  p.push(`<rect class="ground" x="0" y="${바닥}" width="${W}" height="2"/>`);
+  // 별관이 있으면 왼쪽 나무 자리가 겹친다
+  if (!별관) {
+    p.push(`<circle class="tree" cx="${x0 - 12}" cy="${바닥 - 9}" r="7"/>`);
+    p.push(`<rect class="trunk" x="${x0 - 13}" y="${바닥 - 5}" width="2" height="5"/>`);
+  }
+  p.push(`<circle class="tree" cx="${x0 + b.w + 11}" cy="${바닥 - 7}" r="5.5"/>`);
+  p.push(`<rect class="trunk" x="${x0 + b.w + 10}" y="${바닥 - 4}" width="2" height="4"/>`);
+  p.push(`</svg>`);
+  return p.join('');
+}
+
 function drawPlay() {
   const sc = $('screen');
   sc.innerHTML = '';
 
-  sc.appendChild(el('div', 'stage-art', '[ ' + G.단계(S).이름 + ' 사무실 ]'));
+  const 고정 = el('div', 'stickytop');
+  const 스크롤 = el('div', 'scrollzone');
+
+  /* 건물을 오른쪽에, 말풍선을 왼쪽에 나란히 둔다.
+     말풍선을 건물 위에 겹치면 세로를 더 먹고, 스크롤을 내리면 안 보인다 */
+  const 그림줄 = el('div', 'artrow');
+  const side = el('div', 'artside');
+  if (V.말풍선 && 대사[V.말풍선]) {
+    const bub = el('div', 'bubble');
+    bub.appendChild(el('span', 'who', V.말풍선));
+    bub.appendChild(el('span', 'say', 대사[V.말풍선]));
+    side.appendChild(bub);
+  } else {
+    side.appendChild(el('div', 'sidestage', G.단계(S).이름));
+    side.appendChild(el('div', 'sidenum', S.직원 + '명'));
+  }
+  const art = el('div', 'stage-art');
+  art.innerHTML = 사무실SVG(G.단계인덱스(S), S.직원);
+  그림줄.appendChild(side);
+  그림줄.appendChild(art);
+  고정.appendChild(그림줄);
 
   // 분기 4칸
   const plan = el('div', 'plan');
@@ -886,7 +1055,8 @@ function drawPlay() {
   go.disabled = !다참 || V.돌아가는중;
   go.onclick = 진행;
   plan.appendChild(go);
-  sc.appendChild(plan);
+  고정.appendChild(plan);
+  sc.appendChild(고정);
 
   // 업무 / 인력
   for (const [제목, 목록] of [['업무관리', 업무들], ['인력관리', 설정.인력]]) {
@@ -904,13 +1074,16 @@ function drawPlay() {
       if (st.가능) c.onclick = () => {
         const i = V.배치.findIndex((x, j) => !x && j >= V.진행);
         if (i < 0) return;
-        V.배치[i] = slot; draw();
+        V.배치[i] = slot;
+        말풍선띄우기(slot);
+        draw();
       };
       cs.appendChild(c);
     }
     grp.appendChild(cs);
-    sc.appendChild(grp);
+    스크롤.appendChild(grp);
   }
+  sc.appendChild(스크롤);
 }
 
 /* ========================= 팝업 ========================= */
@@ -1341,9 +1514,10 @@ function draw() {
     $('app').innerHTML = '<div id="bar"></div><div id="screen"></div><div id="tabs"></div>';
   }
   drawBar();
-  if (V.탭 === '회사') drawPlay();
-  else if (V.탭 === '보고서') drawReport();
-  else drawSettings();
+  const sc = $('screen');
+  if (V.탭 === '회사') { sc.classList.add('play'); drawPlay(); }
+  else { sc.classList.remove('play');
+         if (V.탭 === '보고서') drawReport(); else drawSettings(); }
   drawTabs();
 }
 
@@ -1354,6 +1528,6 @@ catch (e) { 저장막힘 = true; }
 draw();
 
 /* 테스트 하네스가 내부 상태를 들여다볼 수 있게 열어둔다 (브라우저에서도 무해) */
-window.__ui = { get S(){ return S; }, V, draw };
+window.__ui = { get S(){ return S; }, V, draw, 사무실SVG };
 </script>
 </html>
