@@ -4,11 +4,182 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>사장으로 살아남기</title>
+<meta name="description" content="IT 회사를 키우는 분기 선택형 타이쿤. 설문 0문항으로 MBTI를 진단한다.">
+
+<!-- favicon — 이모지를 SVG 로 감싼다. 별도 파일이 필요 없고 404 도 안 난다 ('직장인' 계승) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%A2%3C/text%3E%3C/svg%3E">
+<style>
+/* ==========================================================================
+   '직장인으로 살아남기' 뼈대 계승 (기획 §0 "UI 뼈대 그대로, 색만 밝게")
+   달라진 것: 흑백 → 밝은 색. 게이지는 안전 구간을 색으로 표시한다 (기획 §3)
+   ========================================================================== */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#2b2b33; --line:#d8d3ea; --line2:#b9b2d6;
+  --bg:#fdfcff; --panel:#fff; --soft:#f4f1fb; --accent:#6c5ce7; --accent2:#f0ecff;
+  /* 기획 §3 안전 구간 색 */
+  --risk:#e8556d; --meh:#f0993e; --safe:#3fb984; --hot:#e8c33e;
+}
+body{background:var(--soft);color:var(--ink);
+     font-family:"Apple SD Gothic Neo","Noto Sans KR","맑은 고딕","Malgun Gothic",
+                 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%}
+#app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;
+     background:var(--bg);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+
+/* ── 상태바 ── */
+#bar{border-bottom:2px solid var(--line2);padding:9px 11px;position:sticky;top:0;
+     background:var(--panel);z-index:10}
+#bar .row1{display:flex;justify-content:space-between;align-items:baseline;
+           font-weight:bold;margin-bottom:7px}
+#bar .row1 .yr{font-size:16px}
+#bar .row1 .stg{font-size:12px;color:var(--accent);font-weight:bold}
+.money{display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin-bottom:5px}
+.money .v{font-variant-numeric:tabular-nums}
+.money .v.minus{color:var(--risk)}
+.g{display:flex;align-items:center;gap:7px;margin:3px 0;font-size:12px}
+.g .nm{width:46px;flex:none;color:#66607e}
+.g .track{flex:1;height:11px;border:1px solid var(--line2);background:#fff;
+          position:relative;border-radius:6px;overflow:hidden}
+/* 안전 구간(40~75) 표시 — 어디가 좋은지 모르면 답답하다 (기획 §3) */
+.g .track::before{content:'';position:absolute;left:40%;width:35%;top:0;bottom:0;
+                  background:var(--accent2)}
+.g .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;transition:width .18s linear}
+.g .val{width:26px;text-align:right;flex:none;font-variant-numeric:tabular-nums;font-weight:bold}
+.goal{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:7px;
+      padding-top:7px;border-top:1px dashed var(--line)}
+.goal .nm{font-size:11.5px;font-weight:bold;color:var(--accent);margin-right:2px}
+.goal .need{font-size:11px;border:1px solid var(--line2);border-radius:5px;padding:1px 6px;color:#78718f}
+.goal .need.ok{border-color:var(--safe);color:var(--safe);font-weight:bold}
+#bar .hint{font-size:11.5px;color:var(--accent);font-weight:bold;margin-top:5px}
+#warnrow{font-size:11.5px;margin-top:6px;color:var(--risk);line-height:1.45;white-space:pre-line}
+
+/* ── 본문 ── */
+#screen{flex:1;padding:12px 11px 16px;overflow-y:auto}
+.stage-art{display:flex;align-items:center;justify-content:center;
+           height:112px;margin-bottom:12px;border:1.5px dashed var(--line2);
+           border-radius:10px;background:var(--panel);color:#9a93b8;font-size:12px}
+
+/* ── 분기 배치판 ── */
+.plan{border:1.5px solid var(--line2);border-radius:10px;background:var(--panel);
+      padding:9px;margin-bottom:12px}
+.plan .hd{display:flex;justify-content:space-between;align-items:center;
+          font-size:12px;color:#66607e;margin-bottom:7px}
+.qrow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.q{border:1.5px solid var(--line);border-radius:8px;background:var(--soft);
+   min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+   font-size:12.5px;font-weight:bold;cursor:pointer;padding:4px 2px;text-align:center}
+.q .qn{font-size:10px;font-weight:normal;color:#9a93b8;margin-bottom:2px}
+.q.filled{background:var(--accent2);border-color:var(--accent)}
+.q.cur{box-shadow:0 0 0 2px var(--accent)}
+.q.done{opacity:.45}
+.q .empty{color:#b5aed0;font-weight:normal}
+.go{width:100%;margin-top:9px;border:1.5px solid var(--accent);border-radius:8px;
+    background:var(--accent);color:#fff;padding:11px;font:inherit;font-size:15px;
+    font-weight:bold;cursor:pointer}
+.go:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── 선택지 카드 (배치판 = 수치 공개, 기획 §9) ── */
+.grp{margin-bottom:10px}
+.grp .gh{font-size:12px;color:#66607e;margin-bottom:5px;font-weight:bold}
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.card{border:1.5px solid var(--line2);border-radius:9px;padding:9px 6px;cursor:pointer;
+      background:var(--panel);text-align:center;font:inherit;color:inherit;font-weight:bold;
+      font-size:14px;min-height:56px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center}
+.card .e{display:block;font-size:11px;color:#78718f;font-weight:normal;margin-top:3px;
+         letter-spacing:-.3px;line-height:1.35}
+.card:active{background:var(--accent2)}
+@media (hover:hover){ .card:not(.lock):hover{background:var(--accent2)} }
+/* 미해금 — 흐리게가 아니라 점선 + 회색. 조건 문구가 읽혀야 하므로 (규칙 §4-2) */
+.card.lock{cursor:not-allowed;border-style:dashed;border-color:#c9c3dd;color:#a49dbd;
+           background:var(--panel)}
+.card.lock .e{color:#a49dbd}
+
+/* ── 탭바 ── */
+#tabs{display:flex;border-top:2px solid var(--line2);position:sticky;bottom:0;background:var(--panel)}
+#tabs button{flex:1;padding:11px 2px;border:none;border-right:1px solid var(--line);
+             background:var(--panel);font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+#tabs button:last-child{border-right:none}
+#tabs button.on{background:var(--accent);color:#fff;font-weight:bold}
+
+/* ── 팝업 ── */
+#overlay{position:fixed;inset:0;background:rgba(40,35,60,.55);display:none;
+         align-items:center;justify-content:center;padding:16px;z-index:50}
+#overlay.on{display:flex}
+.pop{background:var(--panel);border:2px solid var(--line2);border-radius:14px;max-width:420px;
+     width:100%;padding:18px 16px;max-height:90vh;overflow-y:auto}
+.pop h2{text-align:center;font-size:18px;margin-bottom:10px}
+.pop .desc{margin-bottom:14px;white-space:pre-line;font-size:14px;line-height:1.65}
+.pop .opts{display:flex;flex-direction:column;gap:8px}
+.pop .opts button{border:1.5px solid var(--line2);border-radius:9px;background:var(--panel);
+                  padding:11px;font:inherit;cursor:pointer;text-align:left;color:inherit}
+@media (hover:hover){ .pop .opts button:not(.lock):hover{background:var(--accent2)} }
+/* 이벤트 선택지는 수치를 숨긴다 (기획 §9 · 규칙 §4-2) — 보이면 계산으로 고른다 */
+.pop .opts button.lock{border-style:dashed;border-color:#c9c3dd;color:#a49dbd;cursor:not-allowed}
+.pop .opts button.lock .lk{display:block;font-size:11px;margin-top:4px}
+.pop .res{border:1.5px solid var(--line2);border-radius:9px;background:var(--soft);
+          padding:11px;margin-bottom:12px;font-size:13.5px;line-height:1.6;white-space:pre-line}
+.pop .deltas{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:9px}
+.pop .dl{font-size:12px;font-weight:bold;border-radius:6px;padding:2px 7px;background:var(--accent2)}
+.pop .dl.up{color:#1f8a5f} .pop .dl.dn{color:#c33a52}
+.btnrow{display:flex;gap:8px;margin-top:13px}
+.btnrow button{flex:1;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);
+               color:#fff;padding:10px;font:inherit;font-weight:bold;cursor:pointer}
+.btnrow button.ghost{background:var(--panel);color:var(--accent)}
+
+/* ── 표 / 보고서 ── */
+h3{font-size:14.5px;border-bottom:1.5px solid var(--line2);padding-bottom:4px;margin:16px 0 8px}
+h3:first-child{margin-top:0}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left}
+th{background:var(--accent2);font-weight:bold}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.typebox{border:1.5px solid var(--accent);border-radius:11px;background:var(--accent2);
+         padding:13px;margin-bottom:12px;text-align:center}
+.typename{font-size:26px;font-weight:bold;letter-spacing:2px;color:var(--accent)}
+.typesub{font-size:12px;color:#66607e;margin-top:5px;line-height:1.55}
+.axrow{display:flex;align-items:center;gap:7px;font-size:12px;margin:5px 0}
+.axrow .ax{width:64px;flex:none;color:#66607e}
+.axrow .bar{flex:1;height:9px;border:1px solid var(--line2);border-radius:5px;background:#fff;
+            position:relative;overflow:hidden}
+.axrow .bar i{position:absolute;top:0;bottom:0;background:var(--accent)}
+.axrow .lb{width:74px;flex:none;text-align:right;font-weight:bold}
+.savenote{border:1px dashed var(--line2);border-radius:9px;padding:9px 10px;margin-top:14px;
+          font-size:11.5px;color:#78718f;line-height:1.6;text-align:center}
+.savenote b{display:block;font-size:12.5px;color:var(--ink);margin-bottom:3px}
+.savenote.warn{border:1.5px solid var(--risk);color:var(--ink)}
+
+/* ── 타이틀 / 인트로 ── */
+#title,#intro{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+              padding:26px 20px;text-align:center}
+#title h1{font-size:27px;letter-spacing:-1px;margin-bottom:6px}
+#title .tag{font-size:12.5px;color:#78718f;margin-bottom:24px}
+#title .menu{display:flex;flex-direction:column;gap:9px;width:100%;max-width:280px}
+#title .menu button{border:1.5px solid var(--accent);border-radius:9px;background:var(--panel);
+                    color:var(--accent);padding:13px;font:inherit;font-size:15px;
+                    font-weight:bold;cursor:pointer}
+#title .menu button.primary{background:var(--accent);color:#fff}
+#title .menu button:disabled{opacity:.3;cursor:not-allowed}
+#title .menu button .s{display:block;font-size:11px;font-weight:normal;margin-top:3px;opacity:.8}
+#title .foot{margin-top:22px;font-size:11px;color:#9a93b8}
+#intro .line{font-size:15.5px;line-height:2;white-space:pre-line;margin-bottom:24px}
+#intro button{border:1.5px solid var(--accent);border-radius:9px;background:var(--accent);
+              color:#fff;padding:13px;font:inherit;font-size:15px;font-weight:bold;
+              cursor:pointer;width:100%;max-width:280px}
+.center{text-align:center}
+.muted{color:#78718f;font-size:12px}
+</style>
 </head>
 <body>
-<!-- 화면은 시뮬레이션 검증 후에 얹는다. 지금은 로직만. -->
-</body>
+<div id="app">
+  <div id="bar"></div>
+  <div id="screen"></div>
+  <div id="tabs"></div>
+</div>
+<div id="overlay"><div class="pop" id="pop"></div></div>
 
+<script src="story.js"></script>
 <script>
 /* ==========================================================================
    사장으로 살아남기 — 게임 로직
@@ -22,14 +193,28 @@ const CFG = {
   시작돈: 3000, 시작평판: 5, 시작분위기: 80, 시작실력: 30, 시작직원: 1,
 
   /* ---- 돈 ---- */
-  기본매출: 1000,          // 직원 1명 / 1분기
+  기본매출: 2200,          // 직원 1명 / 1분기
+                           // 손익분기 배수 ≈ 0.58 → 영업만 적자, 마케팅은 본전, 인력관리는 흑자
+                           // 1000 이면 손익분기가 0.75 라 슬롯 4개 중 3개가 적자였다
   인건비: 600,             // 1명 / 1분기 (대표 제외)
   인건비연상승: 0.05,
+  /* 규모와 무관한 회사 운영비 — 세금·회계·기본 임대. 매년 오른다.
+     매출도 지출도 직원 수에 비례해서 회사 크기가 마진율을 안 바꾼다
+     → "작아도 괜찮다" 가 수학적으로 성립해 성장할 이유가 없어진다.
+     직원 수에 비례하지 않는 비용이 하나는 있어야 한다 (SB세션 §3-2 해법 ③)
+     세게 넣으면 안 된다: 2,000만·18% 로 잡았더니 승급을 노리는 사람조차
+     돈이 없어 채용을 못 해 스타트업에 75% 가 갇혔다 */
+  고정운영비: 800,
+  고정운영비상승: 0.15,
+  매출연상승: 0.035,       // 연차가 쌓이면 단가를 올려 받는다.
+                           // 이게 없으면 인건비만 매년 5% 복리로 오르고 매출 단가는 고정이라
+                           // 규모가 커질수록 구조적으로 적자다 (10년차 성장 플레이어의 58%가 빚더미였다).
+                           // 인건비(5%)보다 낮게 둬서 압박은 남긴다 — 자원 무한 축적 방지 (§7)
 
   /* ---- 양극단 페널티 : 지표 → 계수 ---- */
   계수구간: [
-    { max: 20,  v: 0.5 },   // 위험
-    { max: 40,  v: 0.8 },   // 아쉬움
+    { max: 20,  v: 0.6 },   // 위험
+    { max: 40,  v: 0.85 },  // 아쉬움
     { max: 75,  v: 1.0 },   // 안전
     { max: 90,  v: 0.9 },   // 슬슬 과열
     { max: 999, v: 0.7 },   // 과열
@@ -46,26 +231,69 @@ const CFG = {
   /* ---- 인력 4개 : T/F · J/P 전담 ---- */
   인력배수: 0.7,
   인력: ['채용','해고','교육','휴가'],
-  채용비율: 0.25, 채용최소: 2, 채용단가: 300,
-  해고비율: 0.10, 해고최소: 1,
+  채용비율: 0.25, 채용최소: 10, 채용단가: 300,
+  단계별채용비율: [0.25, 0.25, 0.25, 0.25],
+  // 1 → 11 → 21 → 31 → 41 → 51 → 64 → 80 → 100 → 125 → 156
+  // 직원 문턱(50/100/150)이 승급 조건이라 이 곡선이 그 위를 지나야 한다
+  해고비율: 0.10, 해고최소: 1, 해고단가: 300,
+  // 해고도 규모 비례. 정액 400 이면 직원 1000명 회사에서 100명을 내보내고 400만원이라
+  // 대기업에선 사실상 공짜 인원 감축이 된다. 채용 단가와 같게 두면
+  // "뽑을 때 300 쓰고 내보낼 때 300 받는" 대칭이 생겨 해고로 돈 버는 수가 없어진다
   교육비: 500, 휴가비: 300,
 
   /* ---- 회사 단계 ---- */
+  // 최대직원은 표시용 눈금일 뿐, 승급을 정하지 않는다 (아래 승급조건)
   단계: [
-    { 이름:'스타트업', 최대직원:10,   사무실:150 },
-    { 이름:'중소기업', 최대직원:100,  사무실:180 },
-    { 이름:'중견기업', 최대직원:500,  사무실:220 },
+    { 이름:'스타트업', 최대직원:40,   사무실:150 },
+    { 이름:'중소기업', 최대직원:90,   사무실:180 },
+    { 이름:'중견기업', 최대직원:140,  사무실:220 },
     { 이름:'대기업',   최대직원:1e9,  사무실:260 },
   ],
 
+  /* ---- 승급 : 기간 + 직원 + 분기매출 셋 다 충족 ----
+     직원 수만으로 정하면 "직원 3명인데 중견기업" 이 나온다.
+     기간이 페이싱을, 직원이 규모를, 매출이 "지표를 관리했나" 를 본다.
+     대기업 = 엔딩. 그 뒤로는 자유 플레이
+
+     ★ 매출 문턱은 그 단계의 직원 문턱에서 겨우 닿는 수준이다.
+       낮게 잡으면(9억) 직원 106명에서 이미 20억이라 두 배를 넘겨버리고,
+       그러면 매출을 더 올릴 이유가 없어 채용 버튼을 누를 동기가 사라진다.
+       매출 = 직원수 × … 이므로, 문턱을 높이면 "매출을 늘리는 유일한 길이 채용" 이 된다
+
+     ★ 기간은 "그 단계에 들어온 뒤 N분기" 다 (절대 분기가 아니다).
+       절대값(16/32/48)으로 두면, 늦게 올라온 사람은 이미 32·48분기를 지났고
+       직원 수도 넘겨놔서 다음 단계 조건까지 동시에 만족한다.
+       → 한 분기 간격으로 연달아 승급하고 진단서가 같은 유형으로 두 장 나온다.
+         기획 §8 의 "변천사" 가 통째로 죽는다 (실제로 21년차 중소 → 22년차 중견이 나왔다) */
+  승급조건: [
+    null,
+    { 분기:16, 직원:50,  매출:70000 },   // 중소기업 · 스타트업 진입 후 4년
+    { 분기:16, 직원:100, 매출:150000 },  // 중견기업 · 중소 진입 후 4년
+    { 분기:16, 직원:150, 매출:220000 },  // 대기업   · 중견 진입 후 4년 (엔딩)
+  ],
+
   /* ---- 이벤트 ---- */
-  트리거확률: 0.25,        // 인력관리 실행 시 (첫 해고·첫 채용은 100%)
-  사건확률: 0.25,          // 분기당. 발생하면 계획 수정 기회 → J/P
+  트리거확률: 1.0,         // 인력관리 실행 시. 4칸 중 한 칸을 통째로 쓰는 결정이라 항상 물어본다
+  // 이벤트는 확률이 아니라 "단계 진입 후 N분기" 로 뜬다 (story.js 의 진입후 필드)
+  // 이벤트가 뜨면 계획 수정 기회도 같이 온다 (기획 §2)
 
   /* ---- 측정 가중치 ---- */
+  영업과잉선: 75,          // 평판이 이 위면 영업이 평판을 깎는다 (안전구간 상단)
+  외주하한평판: 10,        // 평판이 이 아래면 외주 일감이 아예 안 들어온다.
+                           // 상태바 경고문("외주 업무가 들어오질 않습니다")과 같은 값이어야 한다
+  신입실력_경력: 55, 신입실력_신입: 25,   // 채용 시 팀 평균에 섞이는 값 (기획 §3)
   가중_트리거: 1.0,
+  가중_이벤트: 1.0,
   가중_배치판채용: 0.3,    // 수치로 고르게 되므로 약하게
   판정최소표본: 3,
+
+  /* ---- 자연 회복 : 지표가 안전구간 쪽으로 끌려간다 ---- */
+  회복목표: 35,            // 안전구간(40~75) 바로 아래 = "아쉬움" 구간
+                           // 55(안전구간 한가운데) 로 잡으면 안 된다:
+                           // 평판 계수가 40~75 에서 전부 1.0 이라 안전구간을 공짜로 받게 되고,
+                           // 그러면 영업(배수 0.2, 평판+8) 이 돈만 버리는 열등 선택지가 된다
+  회복률하: 0.07,          // 목표보다 낮을 때 — 세게 당긴다 (죽음의 나선 방지)
+  회복률상: 0.04,          // 목표보다 높을 때 — 약하게 (안 그러면 과열 구간에 도달을 못 한다)
 };
 
 /* --------------------------------------------------------------------------
@@ -73,6 +301,15 @@ const CFG = {
    돈은 전부 + (버튼 눌러서 뜬 거라 손해보면 억울하다)
    돈 크기는 직원수 비례 → 규모가 커져도 스케일이 맞는다
    -------------------------------------------------------------------------- */
+const 트리거상황 = {
+  채용: ['경력자와 신입이 있다.',
+         "경력: '여유있어 보인다. 그가 들어오면 편해질 것이다.'",
+         "신입: '간절해 보인다. 그가 들어오면 열심히 일할 것이다.'"],
+  해고: ['면담을 잡았다.', '"저... 아내가 임신을 했어요."'],
+  교육: ['교육비 예산이 나왔다.', '직원들을 다 보낼 수는 없을 것 같은데...'],
+  휴가: ['다들 지쳐 보인다.', '쉬게 해줘야겠는데...'],
+};
+
 const 트리거 = {
   채용: [
     { 글:'경력을 뽑는다', 축:'T', 돈인당:100, 실력:+3 },
@@ -104,20 +341,31 @@ function 계수(v) {
   return CFG.계수구간[CFG.계수구간.length - 1].v;
 }
 
-function 단계(S) {
-  for (const st of CFG.단계) if (S.직원 <= st.최대직원) return st;
-  return CFG.단계[CFG.단계.length - 1];
-}
-function 단계인덱스(S) {
-  for (let i = 0; i < CFG.단계.length; i++) if (S.직원 <= CFG.단계[i].최대직원) return i;
-  return CFG.단계.length - 1;
+// 단계는 승급으로만 오른다. 직원 수로 되돌아 계산하지 않는다
+function 단계인덱스(S) { return S.단계 || 0; }
+function 단계(S) { return CFG.단계[단계인덱스(S)]; }
+
+/* 다음 단계 조건을 지금 만족하나. 못 채운 항목도 같이 돌려준다 (UI 가 그대로 보여준다) */
+function 승급판정(S) {
+  const n = 단계인덱스(S) + 1;
+  const c = CFG.승급조건[n];
+  if (!c) return { 가능:false, 끝:true };
+  // 기간은 그 단계에 들어온 뒤로 센다
+  const 진입 = (S.단계진입 && S.단계진입[단계인덱스(S)]) || 0;
+  const 항목 = [
+    { 이름:'기간', 현재:S.분기 - 진입, 필요:c.분기, 단위:'분기' },
+    { 이름:'직원', 현재:S.직원,        필요:c.직원, 단위:'명' },
+    { 이름:'매출', 현재:S.최근매출,    필요:c.매출, 단위:'만' },
+  ];
+  return { 가능: 항목.every(x => x.현재 >= x.필요), 항목, 다음: CFG.단계[n].이름 };
 }
 
 function 매출(S, slot) {
   const w = CFG.업무[slot];
   const 배수 = w ? w.배수 : CFG.인력배수;
+  const 연차 = Math.floor(S.분기 / 4);
   return Math.round(
-    S.직원 * CFG.기본매출 *
+    S.직원 * CFG.기본매출 * Math.pow(1 + CFG.매출연상승, 연차) *
     계수(S.실력) * 계수(S.평판) * 계수(S.분위기) * 배수
   );
 }
@@ -127,10 +375,39 @@ function 지출(S) {
   const 연차 = Math.floor(S.분기 / 4);
   const 인건 = Math.max(0, S.직원 - 1) * CFG.인건비 * Math.pow(1 + CFG.인건비연상승, 연차);
   const 사무실 = S.직원 * st.사무실;
-  return Math.round(인건 + 사무실);
+  const 운영 = CFG.고정운영비 * Math.pow(1 + CFG.고정운영비상승, 연차);
+  return Math.round(인건 + 사무실 + 운영);
 }
 
-function 채용인원(S) { return Math.max(CFG.채용최소, Math.round(S.직원 * CFG.채용비율)); }
+function 채용인원(S) {
+  const 비율 = CFG.단계별채용비율[단계인덱스(S)];
+  return Math.max(CFG.채용최소, Math.round(S.직원 * 비율));
+}
+
+/* 슬롯을 고르는 데 드는 선불 비용. 업무와 해고는 0 (해고는 오히려 받는다) */
+function 슬롯비용(S, slot) {
+  if (slot === '채용') return 채용인원(S) * CFG.채용단가;
+  if (slot === '교육') return CFG.교육비;
+  if (slot === '휴가') return CFG.휴가비;
+  return 0;
+}
+
+/* 지금 이 슬롯을 고를 수 있나.
+   기획 §9: 조건부 선택지는 잠긴 채로 조건을 보여준다 → UI 는 이걸로 버튼을 잠근다 */
+function 선택가능(S, slot) {
+  // 인력관리는 이벤트4(신입 입사) 전까지 잠겨 있다. 혼자인 회사에 인력관리는 없다
+  if (CFG.인력.indexOf(slot) >= 0 && !S.해금['인력관리'])
+    return { 가능:false, 잠김:'인력관리', 사유:'신입이 들어와야 열립니다' };
+  // 기획 §3 상태별 문구 — "평판 0: 외주업무가 들어오질 않습니다".
+  // 경고만 띄우고 버튼은 눌리면 말과 행동이 어긋난다
+  if (slot === '외주' && S.평판 < CFG.외주하한평판)
+    return { 가능:false, 잠김:'외주', 사유:'평판이 낮아 일감이 없습니다' };
+  const 비용 = 슬롯비용(S, slot);
+  // 공짜인 칸(업무 4개·해고)은 빚이 있어도 항상 고를 수 있어야 한다.
+  // S.돈 >= 비용 만 보면 빚일 때 업무까지 잠겨 배치를 못 채우고 게임이 멈춘다.
+  // 기획 §0 "실패: 없음. 돈이 마이너스면 빚" 과 정면으로 충돌한다
+  return { 가능: 비용 <= 0 || S.돈 >= 비용, 비용 };
+}
 function 해고인원(S) { return Math.max(CFG.해고최소, Math.round(S.직원 * CFG.해고비율)); }
 
 /* ========================= 상태 ========================= */
@@ -146,17 +423,36 @@ function newGame() {
 
     축: { E:0, I:0, S:0, N:0, T:0, F:0, J:0, P:0 },
     다음실력: 0,            // 다음 분기에 반영될 실력 보너스
+    단계: 0,                // 승급으로만 오른다
+    단계진입: [0, 0, 0, 0],  // 각 단계에 들어온 분기. 이벤트가 여기서부터 센다
+    최근매출: 0,
+    해금: {},               // 이벤트로 열리는 것들 (인력관리)
     첫채용함: false, 첫해고함: false,
+    본이벤트: [],           // 이미 본 이벤트 id (1회성 보장)
+    갈래: {},               // 연쇄용. { 이벤트id: '조용'|'활발'|true }
     승급이력: [],           // { 분기, 단계, 진단 }
     로그: [],
     최저돈: CFG.시작돈,
     과열분기: 0,            // 어떤 지표든 90 이상이었던 분기 수
     위험분기: 0,            // 어떤 지표든 20 미만이었던 분기 수
     계획수정: 0, 계획유지: 0,
+    무산: 0,                // 돈이 모자라 인력관리가 무산된 분기 수
   };
 }
 
 function 축가산(S, k, w) { if (k && S.축[k] !== undefined) S.축[k] += w; }
+
+/* 자연 회복 — 가만히 두면 모든 게 평범해진다.
+   왜 필요한가: 매출 계수가 계수(실력)×계수(평판)×계수(분위기) 3중곱이라
+   한 지표가 0 에 박히면 매출이 급락하는데, 그걸 되돌릴 수단이 영업(배수 0.2)뿐이라
+   빠져나올 길이 없다 (죽음의 나선). 100 에 박제되는 것도 같이 막는다. */
+function 자연회복(S) {
+  for (const k of ['평판','분위기','실력']) {
+    const 거리 = CFG.회복목표 - S[k];
+    const 율 = 거리 > 0 ? CFG.회복률하 : CFG.회복률상;
+    S[k] = clamp(Math.round(S[k] + 거리 * 율), 0, 100);
+  }
+}
 
 function 지표적용(S, e) {
   if (e.평판)   S.평판   = clamp(S.평판   + e.평판,   0, 100);
@@ -178,20 +474,27 @@ function runQuarter(S, slot, choose, rnd) {
 
   // 2) 매출 · 지출
   const rev = 매출(S, slot);
+  S.최근매출 = rev;              // 승급 조건이 본다
   const cost = 지출(S);
   S.돈 += rev - cost;
 
   // 3) 슬롯 효과
   const w = CFG.업무[slot];
   if (w) {
-    지표적용(S, w);
+    // 영업은 평판이 이미 높으면 역효과 — 다 아는 회사를 계속 밀어붙이면 질린다.
+    // 평판을 낮추는 수단이 외주(I·S)뿐이면 E 성향이 과열을 풀 방법이 없다
+    if (slot === '영업') 지표적용(S, { 평판: S.평판 >= CFG.영업과잉선 ? -6 : +8 });
+    else 지표적용(S, w);
     축가산(S, w.ei, 1);
     축가산(S, w.sn, 1);
   } else {
     인력처리(S, slot, choose, rnd);
   }
 
-  // 4) 관측
+  // 4) 자연 회복 — 슬롯 효과가 다 반영된 뒤에 끌어당긴다
+  자연회복(S);
+
+  // 5) 관측
   if (S.돈 < S.최저돈) S.최저돈 = S.돈;
   const mx = Math.max(S.평판, S.분위기, S.실력);
   const mn = Math.min(S.평판, S.분위기, S.실력);
@@ -202,6 +505,16 @@ function runQuarter(S, slot, choose, rnd) {
 }
 
 function 인력처리(S, slot, choose, rnd) {
+  /* 돈이 모자라면 무산된다.
+     UI 는 §9 대로 버튼을 잠그지만, 기획 §2 는 연초에 4칸을 미리 채우는 구조라
+     연초엔 낼 수 있던 계획이 실행 분기엔 못 낼 수 있다. 그때 여기로 온다.
+     무산된 분기는 트리거 이벤트도 안 뜨므로 축도 재지 않는다 — 고른 적이 없는 셈이다 */
+  if (!선택가능(S, slot).가능) {
+    S.무산++;
+    S.로그.push({ 분기: S.분기, 무산: slot, 필요: 슬롯비용(S, slot), 보유: S.돈 });
+    return;
+  }
+
   // 트리거 이벤트 발동 여부
   let 발동 = rnd() < CFG.트리거확률;
   if (slot === '채용' && !S.첫채용함) { 발동 = true; S.첫채용함 = true; }
@@ -226,12 +539,17 @@ function 인력처리(S, slot, choose, rnd) {
     // 배치판 자체의 실력/인성 선택 — 가중치 낮음
     const 실력위주 = choose('채용방침', [{축:'T'},{축:'F'}]) === 0;
     축가산(S, 실력위주 ? 'T' : 'F', CFG.가중_배치판채용);
-    지표적용(S, 실력위주 ? { 실력:+5 } : { 분위기:+5 });
+    /* 기획 §3 — 실력은 "팀 평균". 신입이 들어오면 평균이 내려간다.
+       채용이 실력을 올리게 두면 회사를 키울수록 실력이 과열로 밀려 올라간다
+       (실측: 48분기 중 실력 과열 20% · 분위기 32%) */
+    const 신입실력 = 실력위주 ? CFG.신입실력_경력 : CFG.신입실력_신입;
+    S.실력 = clamp(Math.round((S.실력 * (S.직원 - n) + 신입실력 * n) / S.직원), 0, 100);
+    지표적용(S, 실력위주 ? { 분위기:-3 } : { 분위기:+3 });
   } else if (slot === '해고') {
     if (!해고취소) {
       const n = Math.min(해고인원(S), Math.max(0, S.직원 - 1));
       S.직원 -= n;
-      S.돈 += 400;
+      S.돈 += n * CFG.해고단가;
       지표적용(S, { 분위기:-5 });
     }
   } else if (slot === '교육') {
@@ -243,23 +561,97 @@ function 인력처리(S, slot, choose, rnd) {
   }
 }
 
-/* ========================= 계획 수정 (J/P) ========================= */
-// 사건이 터졌을 때 남은 분기 계획을 바꾸는가
-function 사건발생(rnd) { return (rnd || Math.random)() < CFG.사건확률; }
+/* ========================= 이벤트 =========================
+   story.js 가 원본. 종류는 3가지 (규칙 §1)
+     이야기 — 순서 고정. 조건이 맞으면 사건보다 먼저 나온다
+     사건   — 해금된 것 중 무작위
+     위기   — 특정 상태에서만 (아직 story.js 에 없음)
+   이벤트가 뜨면 계획 수정 기회도 같이 온다 (기획 §2)
+   ========================================================== */
+const 스토리 = (typeof window !== 'undefined' && window.__story) || [];
+
+function 단계열림(S, 이름) {
+  const i = CFG.단계.findIndex(st => st.이름 === 이름);
+  return i < 0 || 단계인덱스(S) >= i;
+}
+
+/* 선택지를 지금 고를 수 있나. 못 고르면 잠긴 채 조건이 보인다 (규칙 §4-2) */
+function 선택지가능(S, 선택) {
+  if (!선택.조건) return { 가능: true };
+  for (const k in 선택.조건) if ((S[k] || 0) < 선택.조건[k]) {
+    return { 가능: false, 지표: k, 필요: 선택.조건[k] };
+  }
+  return { 가능: true };
+}
+
+function 등장가능(S, e) {
+  if (S.본이벤트.indexOf(e.id) >= 0) return false;      // 1회성
+  if (e.승급 && !승급판정(S).가능) return false;         // 졸업 이벤트는 조건을 채워야
+  if (!단계열림(S, e.단계)) return false;
+  /* 이벤트는 "그 단계에 들어온 뒤 N분기" 에 뜬다.
+     절대 분기로 박으면 늦게 승급한 사람은 다음 단계 이벤트가 한꺼번에 풀려 몰려 뜬다.
+     금액 기준으로 하면 플레이 스타일에 따라 1.4~2.0배 차이가 나서
+     이벤트 진행 속도가 성격에 따라 달라진다 (MBTI 측정 게임에서 치명적) */
+  if (e.진입후 !== undefined) {
+    const 진입 = (S.단계진입 && S.단계진입[단계인덱스(S)]) || 0;
+    if (S.분기 - 진입 < e.진입후) return false;
+  }
+  if (e.등장조건) for (const k in e.등장조건) if ((S[k] || 0) < e.등장조건[k]) return false;
+  if (e.연쇄 && !S.갈래[e.연쇄.출처]) return false;      // 앞 이야기를 아직 안 봤다
+  return true;
+}
+
+/* null | 이벤트.
+   시점이 되면 반드시 뜬다 — 확률을 타지 않는다.
+     ① 승급 이벤트(5의 배수): 승급 조건(시기·직원·매출)을 채웠으면 그것부터
+     ② 나머지: 진입 후 N분기가 지난 것 중 id 가 가장 빠른 것
+   확률로 뽑으면 단계 앞쪽에 몰려 터지고 뒤가 텅 빈다
+   (실측: 이벤트 사이 최대 공백 중앙값 12분기) */
+function 이벤트뽑기(S, rnd) {
+  const 가능 = 스토리.filter(e => 등장가능(S, e));
+  const 승급 = 가능.find(e => e.승급);
+  if (승급 && 승급판정(S).가능) return 승급;
+  const 나머지 = 가능.filter(e => !e.승급).sort((a, b) => a.id - b.id);
+  return 나머지.length ? 나머지[0] : null;
+}
+
+/* choose(이벤트, 열린선택지) => 인덱스 */
+function 이벤트적용(S, e, choose) {
+  const 열린 = e.선택.filter(c => 선택지가능(S, c).가능);
+  const 고른 = 열린[clamp(choose(e, 열린), 0, 열린.length - 1)];
+
+  축가산(S, 고른.축, CFG.가중_이벤트 * (고른.강도 || 1));
+  지표적용(S, 고른);
+  if (고른.돈인당) S.돈 += 고른.돈인당 * S.직원;
+  if (e.직원) S.직원 += e.직원;
+
+  S.본이벤트.push(e.id);
+  if (e.해금) S.해금[e.해금] = true;
+  if (고른.갈래) S.갈래[e.id] = 고른.갈래;
+  else if (e.종류 === '이야기') S.갈래[e.id] = true;   // 연쇄 판정용
+  S.로그.push({ 분기: S.분기, 이벤트: e.id, 고름: 고른.글 });
+  return 고른;
+}
+
 function 계획수정기록(S, 수정함) {
-  if (수정함) { 축가산(S, 'P', 1); S.계획수정++; }
-  else        { 축가산(S, 'J', 1); S.계획유지++; }
+  if (수정함) { 축가산(S, "P", 1); S.계획수정++; }
+  else        { 축가산(S, "J", 1); S.계획유지++; }
 }
 
 /* ========================= 승급 ========================= */
 function 승급확인(S, prevIdx) {
-  const now = 단계인덱스(S);
-  if (now > prevIdx) {
-    const d = diagnose(S);
-    S.승급이력.push({ 분기: S.분기, 단계: CFG.단계[now].이름, 진단: d.유형, 상세: d });
-    return CFG.단계[now];
+  if (승급판정(S).가능) {
+    S.단계 = 단계인덱스(S) + 1;
+    if (S.단계진입) S.단계진입[S.단계] = S.분기;
   }
-  return null;
+  const now = 단계인덱스(S);
+  if (now <= prevIdx) return null;
+  // 한 분기에 두 단계를 오를 수 있다. 현재 단계만 기록하면 중간 진단서가 조용히 사라진다
+  for (let i = prevIdx + 1; i <= now; i++) {
+    const d = diagnose(S);
+    S.승급이력.push({ 분기: S.분기, 단계: CFG.단계[i].이름, 진단: d.유형, 상세: d });
+  }
+  return CFG.단계[now];
 }
 
 /* ========================= MBTI 판정 ========================= */
@@ -290,11 +682,678 @@ function diagnose(S) {
    반드시 window 에 담아서 꺼낼 수 있게 한다. (앞 게임에서 밟은 함정)
    ======================================================= */
 window.__game = {
-  CFG, 트리거,
+  CFG, 트리거, 트리거상황,
   newGame, runQuarter, diagnose,
-  계수, 단계, 단계인덱스, 매출, 지출,
-  채용인원, 해고인원,
-  사건발생, 계획수정기록, 승급확인,
+  계수, 단계, 단계인덱스, 매출, 지출, 자연회복, 승급판정,
+  채용인원, 해고인원, 슬롯비용, 선택가능,
+  이벤트뽑기, 이벤트적용, 계획수정기록, 승급확인,
+  스토리, 단계열림, 선택지가능, 등장가능,
 };
+</script>
+
+<script>
+"use strict";
+/* ==========================================================================
+   화면 — 로직은 위 <script> 가 전부 갖고 있다. 여기서는 그리기만 한다.
+   ※ sim.js 는 위 블록만 vm 으로 돌린다. 이 블록에 로직을 두면 검증 밖으로 샌다.
+   ========================================================================== */
+const G = window.__game;
+/* 로직 <script> 가 최상위에 const CFG 를 이미 선언했다.
+   여기서 같은 이름을 또 쓰면 "Identifier 'CFG' has already been declared" 로 페이지가 통째로 죽는다 */
+const 설정 = G.CFG;
+
+const KEY  = 'boss_v1';        // 진행 상태
+const HKEY = 'boss_history';   // 진단서 변천사 — 초기화해도 남는다 (기획 §8)
+const SCHEMA = 1;
+
+const $ = id => document.getElementById(id);
+const el = (t, c, x) => { const e = document.createElement(t);
+  if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+
+/* 기획 §4 표기: 3,000 → "3,000만"  12,500 → "1억 2,500만"  1,200,000 → "120억" */
+function 금액(v) {
+  const m = Math.abs(Math.round(v)), s = v < 0 ? '-' : '';
+  if (m < 10000) return s + m.toLocaleString() + '만';
+  const 억 = Math.floor(m / 10000), 만 = m % 10000;
+  return s + 억.toLocaleString() + '억' + (만 ? ' ' + 만.toLocaleString() + '만' : '');
+}
+const 색 = v => v < 20 ? 'var(--risk)' : v < 40 ? 'var(--meh)'
+              : v < 75 ? 'var(--safe)' : v < 90 ? 'var(--hot)' : 'var(--risk)';
+
+/* 기획 §3 상태별 문구 — 양극단일 때만 뜬다 */
+const 경고문 = [
+  [s => s.평판 < 설정.외주하한평판, '외주 업무가 들어오질 않습니다'],
+  [s => s.평판 >= 90,   '업무가 너무 많습니다. 직원들의 컨디션이 안 좋아집니다'],
+  [s => s.분위기 < 10,  '직원들이 서로 싸우고 있습니다'],
+  [s => s.분위기 >= 90, '직원들의 사이가 너무 좋아 놀기만 합니다'],
+  [s => s.실력 < 10,    '직원들이 실적을 내지 못하고 있습니다'],
+  [s => s.실력 >= 90,   '직원들이 일만 해서 컨디션이 안 좋아졌습니다'],
+];
+
+/* ========================= 저장 ========================= */
+/* localStorage 는 아이폰 프라이빗 브라우징에서 있는 척하다 쓰기에서 던진다.
+   감싸지 않으면 [새로하기] 가 그 줄에서 멈춰 게임이 시작되지 않는다 ('직장인' 에서 밟음) */
+let 저장막힘 = false;
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify({ v: SCHEMA, S, 배치: V.배치, 진행: V.진행 })); }
+  catch (e) { 저장막힘 = true; }
+}
+function load() {
+  try {
+    const o = JSON.parse(localStorage.getItem(KEY) || 'null');
+    return (o && o.v === SCHEMA) ? o : null;
+  } catch (e) { return null; }
+}
+function 저장삭제() { try { localStorage.removeItem(KEY); } catch (e) {} }
+function 변천사() {
+  try { return JSON.parse(localStorage.getItem(HKEY) || '[]'); } catch (e) { return []; }
+}
+function 변천사삭제() { try { localStorage.removeItem(HKEY); } catch (e) {} }
+function 변천사추가(rec) {
+  try { const h = 변천사(); h.push(rec); localStorage.setItem(HKEY, JSON.stringify(h)); }
+  catch (e) { 저장막힘 = true; }
+}
+
+/* ========================= 화면 상태 ========================= */
+let S = null;
+const V = {
+  화면: 'title',       // title | intro | play
+  탭: '회사',          // 회사 | 보고서 | 설정
+  배치: [null, null, null, null],
+  진행: 0,             // 올해 몇 칸까지 실행했나
+  돌아가는중: false,
+};
+
+/* ========================= 상태바 ========================= */
+function drawBar() {
+  const b = $('bar');
+  b.innerHTML = '';
+  if (!S) return;
+  const 연차 = Math.floor(S.분기 / 4) + 1;
+  const r1 = el('div', 'row1');
+  r1.appendChild(el('span', 'yr', 연차 + '년차'));
+  r1.appendChild(el('span', 'stg', G.단계(S).이름));
+  b.appendChild(r1);
+
+  const mo = el('div', 'money');
+  mo.appendChild(el('span', null, '돈'));
+  const mv = el('span', 'v' + (S.돈 < 0 ? ' minus' : ''), 금액(S.돈) + (S.돈 < 0 ? ' (빚)' : ''));
+  mo.appendChild(mv);
+  b.appendChild(mo);
+
+  for (const [nm, k] of [['평판','평판'],['팀분위기','분위기'],['실력','실력']]) {
+    const g = el('div', 'g');
+    g.appendChild(el('span', 'nm', nm));
+    const tr = el('span', 'track'), fi = el('i', 'fill');
+    fi.style.width = S[k] + '%'; fi.style.background = 색(S[k]);
+    tr.appendChild(fi); g.appendChild(tr);
+    g.appendChild(el('span', 'val', String(S[k])));
+    b.appendChild(g);
+  }
+  const g2 = el('div', 'g');
+  g2.appendChild(el('span', 'nm', '직원'));
+  g2.appendChild(el('span', null, S.직원 + '명'));
+  b.appendChild(g2);
+
+  // 다음 승급까지 뭐가 남았나 — 기획 §9 "조건을 보여준다"
+  const j = G.승급판정(S);
+  if (j.항목) {
+    const g = el('div', 'goal');
+    g.appendChild(el('span', 'nm', j.다음));
+    // 필요치만 띄우면 얼마나 모자란지 모른다. 현재값을 같이 보여준다
+    const 모자란것 = [];
+    for (const x of j.항목) {
+      const 찼나 = x.현재 >= x.필요;
+      const f = v => x.이름 === '매출' ? 금액(v)
+                   : v + (x.이름 === '기간' ? '분기' : '명');
+      g.appendChild(el('span', 'need' + (찼나 ? ' ok' : ''),
+                       x.이름 + ' ' + (찼나 ? f(x.필요) + ' ✓' : f(x.현재) + ' / ' + f(x.필요))));
+      if (!찼나) 모자란것.push({ 이름: x.이름, 남은: x.필요 - x.현재, f });
+    }
+    b.appendChild(g);
+
+    /* 기간을 다 채웠는데 못 올라가면 뭐가 모자란지 콕 집어준다.
+       "직원 150명" 만 회색으로 띄워놨더니 22년차까지 모르고 간 플레이가 있었다 */
+    const 기간찼나 = j.항목[0].현재 >= j.항목[0].필요;
+    if (기간찼나 && 모자란것.length) {
+      const t = 모자란것.map(m =>
+        m.이름 === '매출' ? '분기 매출 ' + m.f(m.남은) + ' 더'
+                          : '직원 ' + m.남은 + '명 더').join(' · ');
+      const h = el('div', 'hint', j.다음 + '까지 ' + t + ' 필요합니다');
+      b.appendChild(h);
+    }
+  }
+
+  const w = 경고문.filter(([f]) => f(S)).map(([, t]) => t);
+  if (w.length) { const wr = el('div', null, w.join('\n')); wr.id = 'warnrow'; b.appendChild(wr); }
+}
+
+/* ========================= 배치판 ========================= */
+const 업무들 = ['영업','개발','마케팅','외주'];
+
+/* 지표 변화는 숫자 대신 크기로 — 규칙 §4-6 "숫자는 쓰지 말고 크기만 표시한다".
+   +8 / +3 이 나란히 있으면 읽는 데 품이 들고, 정확한 값은 어차피 판단에 안 쓰인다.
+   사람 수와 돈은 "지금 낼 수 있나" 를 가르는 실제 판단 재료라 숫자로 남긴다 */
+const 기호 = v => v >= 6 ? '++' : v > 0 ? '+' : v <= -6 ? '−−' : '−';
+/* 매출 배수 → 기호. 손익분기 배수가 약 0.58 이라 그 아래는 적자다 */
+const 돈기호 = 배수 => 배수 >= 1.2 ? '++' : 배수 >= 0.8 ? '+' : 배수 >= 0.45 ? '−' : '−−';
+
+function 효과글(slot) {
+  const w = 설정.업무[slot];
+  const p = [];
+  if (w) {
+    p.push('돈' + 돈기호(w.배수));
+    for (const k of ['평판','실력','분위기'])
+      if (w[k]) p.push((k === '분위기' ? '분위기' : k) + 기호(w[k]));
+  } else {
+    const c = G.슬롯비용(S, slot);
+    if (slot === '채용') p.push('직원 +' + G.채용인원(S) + '명', '실력 희석');
+    if (slot === '해고') p.push('직원 −' + G.해고인원(S) + '명', '분위기−');
+    if (slot === '교육') p.push('실력++');
+    if (slot === '휴가') p.push('분위기++');
+    p.push(c ? '돈 −' + 금액(c) : '돈 +' + 금액(G.해고인원(S) * 설정.해고단가));
+  }
+  return p.join(' · ');
+}
+
+function drawPlay() {
+  const sc = $('screen');
+  sc.innerHTML = '';
+
+  sc.appendChild(el('div', 'stage-art', '[ ' + G.단계(S).이름 + ' 사무실 ]'));
+
+  // 분기 4칸
+  const plan = el('div', 'plan');
+  const hd = el('div', 'hd');
+  hd.appendChild(el('span', null, '올해 계획'));
+  hd.appendChild(el('span', null, V.진행 + ' / 4 분기'));
+  plan.appendChild(hd);
+
+  const row = el('div', 'qrow');
+  for (let i = 0; i < 4; i++) {
+    const q = el('div', 'q' + (V.배치[i] ? ' filled' : '')
+                        + (i < V.진행 ? ' done' : '') + (i === V.진행 ? ' cur' : ''));
+    q.appendChild(el('span', 'qn', (i + 1) + '분기'));
+    if (V.배치[i]) q.appendChild(el('span', null, V.배치[i]));
+    else q.appendChild(el('span', 'empty', '—'));
+    if (i >= V.진행) q.onclick = () => { V.배치[i] = null; draw(); };
+    row.appendChild(q);
+  }
+  plan.appendChild(row);
+
+  const 다참 = V.배치.every(x => x);
+  const go = el('button', 'go', V.진행 === 0 ? '진행' : '이어서 진행');
+  go.disabled = !다참 || V.돌아가는중;
+  go.onclick = 진행;
+  plan.appendChild(go);
+  sc.appendChild(plan);
+
+  // 업무 / 인력
+  for (const [제목, 목록] of [['업무관리', 업무들], ['인력관리', 설정.인력]]) {
+    const grp = el('div', 'grp');
+    grp.appendChild(el('div', 'gh', 제목));
+    const cs = el('div', 'cards');
+    for (const slot of 목록) {
+      const st = G.선택가능(S, slot);
+      const c = el('button', 'card' + (st.가능 ? '' : ' lock'));
+      c.appendChild(el('span', 't', slot));
+      // 배치판은 수치를 공개한다 (기획 §9 — 매달 반복이라 인과를 알아야 한다)
+      c.appendChild(el('span', 'e', st.가능 ? 효과글(slot)
+                        : st.사유 ? st.사유 : 금액(st.비용) + ' 필요'));
+      c.disabled = !st.가능;
+      if (st.가능) c.onclick = () => {
+        const i = V.배치.findIndex((x, j) => !x && j >= V.진행);
+        if (i < 0) return;
+        V.배치[i] = slot; draw();
+      };
+      cs.appendChild(c);
+    }
+    grp.appendChild(cs);
+    sc.appendChild(grp);
+  }
+}
+
+/* ========================= 팝업 ========================= */
+function 팝업(build) {
+  const p = $('pop'); p.innerHTML = ''; build(p);
+  $('overlay').classList.add('on');
+}
+function 팝업닫기() { $('overlay').classList.remove('on'); }
+
+function 지표줄(전, 후) {
+  const d = el('div', 'deltas');
+  const 항목 = [['돈','돈'],['평판','평판'],['팀분위기','분위기'],['실력','실력'],['직원','직원']];
+  for (const [nm, k] of 항목) {
+    const v = 후[k] - 전[k];
+    if (!v) continue;
+    const t = k === '돈' ? 금액(v) : (v > 0 ? '+' : '') + v + (k === '직원' ? '명' : '');
+    d.appendChild(el('span', 'dl ' + (v > 0 ? 'up' : 'dn'),
+                     nm + ' ' + (v > 0 && k !== '돈' ? '▲' : v < 0 && k !== '돈' ? '▼' : '') + t));
+  }
+  return d;
+}
+
+/* 이벤트 — 선택 전엔 문구만, 선택 후엔 서술 + 지표 변화를 전부 공개 (규칙 §4-2) */
+function 이벤트팝업(e, done) {
+  팝업(p => {
+    if (e.연쇄 && e.연쇄.갈래) {
+      const 갈 = S.갈래[e.연쇄.출처];
+      const 줄 = e.연쇄.갈래[갈];
+      if (줄) p.appendChild(el('div', 'desc muted', 줄));
+    }
+    p.appendChild(el('div', 'desc', e.글.join('\n')));
+    const box = el('div', 'opts');
+    for (const c of e.선택) {
+      const 가 = G.선택지가능(S, c);
+      const b = el('button', 가.가능 ? '' : 'lock');
+      b.appendChild(el('span', null, c.글));
+      if (!가.가능) {
+        const nm = { 평판:'평판', 분위기:'팀분위기', 실력:'실력' }[가.지표] || 가.지표;
+        b.appendChild(el('span', 'lk', nm + ' ' + 가.필요 + ' 이상 필요'));
+        b.disabled = true;
+      } else {
+        b.onclick = () => {
+          const 전 = { 돈:S.돈, 평판:S.평판, 분위기:S.분위기, 실력:S.실력, 직원:S.직원 };
+          const 고른 = G.이벤트적용(S, e, (ev, 열린) => 열린.indexOf(c));
+          결과팝업(고른, 전, done);
+        };
+      }
+      box.appendChild(b);
+    }
+    p.appendChild(box);
+  });
+}
+
+function 결과팝업(고른, 전, done) {
+  팝업(p => {
+    p.appendChild(el('div', 'desc center', '「' + 고른.글 + '」'));
+    const r = el('div', 'res', 고른.결과 || '');
+    r.appendChild(지표줄(전, S));
+    p.appendChild(r);
+    const row = el('div', 'btnrow');
+    const b = el('button', null, '확인');
+    b.onclick = () => { 팝업닫기(); done(); };
+    row.appendChild(b); p.appendChild(row);
+    drawBar();
+  });
+}
+
+/* 기획 §2 — 사건이 터지면 계획 수정 기회. 이게 J/P 측정 지점이다 */
+function 계획수정팝업(done, 다시짜기) {
+  if (V.진행 >= 4) { G.계획수정기록(S, false); done(); return; }
+  팝업(p => {
+    p.appendChild(el('h2', null, '계획을 바꾸시겠습니까?'));
+    p.appendChild(el('div', 'desc center', '남은 분기 계획이 아직 그대로입니다.'));
+    const row = el('div', 'btnrow');
+    const keep = el('button', 'ghost', '그대로 간다');
+    keep.onclick = () => { G.계획수정기록(S, false); 팝업닫기(); done(); };
+    const chg = el('button', null, '다시 짠다');
+    chg.onclick = () => {
+      G.계획수정기록(S, true);
+      for (let i = V.진행; i < 4; i++) V.배치[i] = null;
+      팝업닫기(); 다시짜기();
+    };
+    row.appendChild(keep); row.appendChild(chg); p.appendChild(row);
+  });
+}
+
+function 진단서팝업(단계이름, d, done) {
+  팝업(p => {
+    p.appendChild(el('h2', null,단계이름 + ' 달성!'));
+    const tb = el('div', 'typebox');
+    tb.appendChild(el('div', 'typename', d.유형));
+    tb.appendChild(el('div', 'typesub',
+      '표본 ' + d.최소표본 + ' · 확신도 ' + Math.round(d.평균확신 * 100) + '%'));
+    p.appendChild(tb);
+    const h = 변천사();
+    if (h.length > 1) {
+      p.appendChild(el('div', 'desc center muted',
+        h.map(r => r.단계 + ' ' + r.유형).join('  →  ')));
+    }
+    const row = el('div', 'btnrow');
+    const b = el('button', null, '계속');
+    b.onclick = () => { 팝업닫기(); done(); };
+    row.appendChild(b); p.appendChild(row);
+  });
+}
+
+/* ========================= 진행 루프 =========================
+   기획 §2 — 연초에 4칸을 미리 채우고 [진행].
+   1분기씩 흘러가며 이벤트가 뜨면 멈춘다. 멈춘 뒤 이어받는 구조라 전부 콜백이다
+   ============================================================ */
+function 진행() {
+  if (V.돌아가는중) return;
+  V.돌아가는중 = true;
+  다음분기();
+}
+
+/* 인력관리 칸은 트리거 이벤트를 먼저 묻는다.
+   runQuarter 가 동기라 중간에 못 멈춘다 → 답을 미리 받아두고 replay 하는 choose 를 넘긴다.
+   이게 없으면 choose 가 늘 0을 돌려줘 전부 T 로 측정된다 (실제로 F 가 0 이었다) */
+function 트리거묻기(slot, done) {
+  const opts = G.트리거[slot];
+  // 무산될 칸이면 묻지 않는다. 고르게 해놓고 "돈이 모자라 무산됐다" 를 띄우면 억울하다
+  if (!opts || !G.선택가능(S, slot).가능) { done(() => 0); return; }
+  const 상황 = G.트리거상황[slot] || [];
+  팝업(p => {
+    p.appendChild(el('div', 'desc', 상황.join('\n')));
+    const box = el('div', 'opts');
+    opts.forEach((o, i) => {
+      const b = el('button', null, o.글);   // 수치는 숨긴다 (규칙 §4-2)
+      b.onclick = () => {
+        if (slot !== '채용') { 팝업닫기(); done(() => i); return; }
+        방침묻기(m => { 팝업닫기(); done(sl => sl === '채용방침' ? m : i); });
+      };
+      box.appendChild(b);
+    });
+    p.appendChild(box);
+  });
+}
+
+/* 배치판 쪽 선택이라 수치를 공개한다 (규칙 §1 — 수치로 물으면 최적화가 측정되므로 가중치도 0.3) */
+function 방침묻기(done) {
+  팝업(p => {
+    p.appendChild(el('h2', null, '어떤 사람을 뽑을까?'));
+    const box = el('div', 'opts');
+    [['경력 위주로 뽑는다', '실력이 덜 희석된다 · 분위기−', 0],
+     ['신입 위주로 뽑는다', '실력이 많이 희석된다 · 분위기+', 1]]
+      .forEach(([t, e, i]) => {
+        const b = el('button');
+        b.appendChild(el('span', null, t));
+        b.appendChild(el('span', 'lk', e));
+        b.onclick = () => done(i);
+        box.appendChild(b);
+      });
+    p.appendChild(box);
+  });
+}
+
+function 다음분기() {
+  if (V.진행 >= 4) { 연말(); return; }
+  const slot = V.배치[V.진행];
+  트리거묻기(slot, choose => 분기실행(slot, choose));
+}
+
+function 분기실행(slot, choose) {
+  const prevIdx = G.단계인덱스(S);
+  const 전 = { 돈:S.돈, 평판:S.평판, 분위기:S.분위기, 실력:S.실력, 직원:S.직원 };
+
+  G.runQuarter(S, slot, choose, Math.random);
+  V.진행++;
+  drawBar(); draw(); save();
+
+  /* 승급 확인은 어떤 경로로도 건너뛰면 안 된다.
+     기준을 "지금 단계" 가 아니라 "이미 발급한 진단서 수" 로 잡는다.
+     현재 상태에서 다시 계산하면, 한 번이라도 확인을 놓친 순간
+     다음 분기엔 이미 그 단계라서 그 진단서가 영영 안 나온다 */
+  const 승급처리 = 그다음 => {
+    const up = G.승급확인(S, S.승급이력.length);
+    if (!up) { 그다음(); return; }
+    const d = S.승급이력[S.승급이력.length - 1];
+    변천사추가({ 단계: up.이름, 유형: d.진단, 분기: S.분기 });
+    진단서팝업(up.이름, d.상세, () => { save(); 그다음(); });
+  };
+  const 이어서 = () => 승급처리(다음분기);
+  // 계획을 다시 짜면 배치판으로 돌아가지만, 승급 확인은 그대로 거친다
+  const 배치판으로 = () => 승급처리(() => { V.돌아가는중 = false; draw(); save(); });
+
+  const 다음 = () => {
+    const ev = G.이벤트뽑기(S, Math.random);
+    if (ev) 이벤트팝업(ev, () => 계획수정팝업(이어서, 배치판으로));
+    else 이어서();
+  };
+
+  // 인력관리는 선택을 물었으니 결과도 보여준다 (규칙 §4-2)
+  if (!설정.업무[slot]) 결과팝업({ 글: slot, 결과: S.무산 && S.로그.length
+        && S.로그[S.로그.length - 1].무산 === slot ? '돈이 모자라 무산됐다.' : '' }, 전, 다음);
+  else 다음();
+}
+
+function 연말() {
+  V.진행 = 0;
+  V.배치 = [null, null, null, null];
+  V.돌아가는중 = false;
+  draw(); save();
+}
+
+/* ========================= 보고서 =========================
+   기획 §1 "그래프로 되어있는 수치를 숫자로 표기" · §8 진단서
+   플레이 중에는 중립 라벨로 노출한다 (E/I 대신 "대외 활동 비중")
+   → 유형을 알고 조작하는 걸 막는다
+   ========================================================== */
+const 중립라벨 = {
+  ei: ['대외 활동', '밖으로', '안에서'],
+  sn: ['판단 기준', '지금',   '나중'],
+  tf: ['사람 결정', '기준',   '관계'],
+  jp: ['일정 운영', '미리',   '그때그때'],
+};
+
+function drawReport() {
+  const sc = $('screen'); sc.innerHTML = '';
+  const d = G.diagnose(S);
+  const 발급됨 = S.승급이력.length > 0;
+
+  sc.appendChild(el('h3', null, '진단'));
+  if (발급됨) {
+    const tb = el('div', 'typebox');
+    tb.appendChild(el('div', 'typename', d.유형));
+    tb.appendChild(el('div', 'typesub', '확신도 ' + Math.round(d.평균확신 * 100) + '%'));
+    sc.appendChild(tb);
+  } else {
+    sc.appendChild(el('div', 'desc center muted',
+      '아직 진단서가 없습니다.\n중소기업이 되면 첫 진단서가 나옵니다.'));
+  }
+
+  // 축은 중립 라벨로만 보여준다
+  for (const k of ['ei','sn','tf','jp']) {
+    const a = d[k], [nm, 왼, 오] = 중립라벨[k];
+    const r = el('div', 'axrow');
+    r.appendChild(el('span', 'ax', nm));
+    const bar = el('span', 'bar'), i = el('i');
+    i.style.left = '0'; i.style.width = (a.비율 * 100) + '%';
+    bar.appendChild(i); r.appendChild(bar);
+    r.appendChild(el('span', 'lb', a.표본 < 설정.판정최소표본
+      ? '표본 부족' : (a.비율 >= 0.5 ? 왼 : 오) + ' ' + Math.round(Math.max(a.비율, 1 - a.비율) * 100) + '%'));
+    sc.appendChild(r);
+  }
+
+  {
+    const j = G.승급판정(S);
+    if (j.항목) {
+      sc.appendChild(el('h3', null, '다음 단계 — ' + j.다음));
+      const t0 = el('table');
+      for (const x of j.항목) {
+        const tr = el('tr');
+        tr.appendChild(el('th', null, x.이름));
+        const 현 = x.이름 === '매출' ? 금액(x.현재) : x.현재 + (x.이름 === '연차' ? '분기' : '명');
+        const 필 = x.이름 === '매출' ? 금액(x.필요) : x.필요 + (x.이름 === '연차' ? '분기' : '명');
+        tr.appendChild(el('td', 'n', 현 + ' / ' + 필 + (x.현재 >= x.필요 ? '  ✓' : '')));
+        t0.appendChild(tr);
+      }
+      sc.appendChild(t0);
+    }
+  }
+
+  sc.appendChild(el('h3', null, '회사'));
+  const t = el('table');
+  const 연차 = Math.floor(S.분기 / 4) + 1;
+  const rows = [
+    ['연차', 연차 + '년차 (' + S.분기 + '분기)'],
+    ['단계', G.단계(S).이름],
+    ['돈', 금액(S.돈)],
+    ['최저 잔고', 금액(S.최저돈)],
+    ['평판', S.평판], ['팀 분위기', S.분위기], ['실력', S.실력],
+    ['직원', S.직원 + '명'],
+    ['다음 분기 매출', 금액(G.매출(S, '개발')) + ' (개발 기준)'],
+    ['다음 분기 지출', 금액(G.지출(S))],
+  ];
+  for (const [k, v] of rows) {
+    const tr = el('tr');
+    tr.appendChild(el('th', null, k));
+    tr.appendChild(el('td', 'n', String(v)));
+    t.appendChild(tr);
+  }
+  sc.appendChild(t);
+
+  const h = 변천사();
+  if (h.length) {
+    sc.appendChild(el('h3', null, '변천사'));
+    const t2 = el('table');
+    for (const r of h) {
+      const tr = el('tr');
+      tr.appendChild(el('th', null, r.단계));
+      tr.appendChild(el('td', null, r.유형));
+      tr.appendChild(el('td', 'n', Math.floor(r.분기 / 4) + 1 + '년차'));
+      t2.appendChild(tr);
+    }
+    sc.appendChild(t2);
+  }
+
+  const row = el('div', 'btnrow');
+  if (발급됨) {
+    const b = el('button', null, '결과 공유하기');
+    b.onclick = 공유;
+    row.appendChild(b);
+  }
+  if (변천사().length) {
+    const r = el('button', 'ghost', '기록 초기화');
+    r.onclick = () => 팝업(p => {
+      p.appendChild(el('h2', null, '진단서 기록을 지울까요?'));
+      p.appendChild(el('div', 'desc center',
+        '지금까지 받은 진단서 ' + 변천사().length + '장이 사라집니다.\n'
+        + '진행 중인 회사는 그대로입니다.'));
+      const rr = el('div', 'btnrow');
+      const no = el('button', 'ghost', '아니요'); no.onclick = 팝업닫기;
+      const yes = el('button', null, '지우기');
+      yes.onclick = () => { 변천사삭제(); 팝업닫기(); draw(); };
+      rr.appendChild(no); rr.appendChild(yes); p.appendChild(rr);
+    });
+    row.appendChild(r);
+  }
+  if (row.children.length) sc.appendChild(row);
+}
+
+/* 기획 §11 공유 — 카카오 SDK 는 아직. 지금은 폴백(클립보드)만 */
+function 공유() {
+  const d = G.diagnose(S);
+  const txt = '사장으로 살아남기 — 내 유형은 ' + d.유형 + '\n'
+            + G.단계(S).이름 + ' · ' + S.직원 + '명 · ' + 금액(S.돈) + '\n'
+            + location.href;
+  const ok = () => 팝업(p => {
+    p.appendChild(el('h2', null, '복사했습니다'));
+    p.appendChild(el('div', 'desc center', txt));
+    const row = el('div', 'btnrow'); const b = el('button', null, '닫기');
+    b.onclick = 팝업닫기; row.appendChild(b); p.appendChild(row);
+  });
+  if (navigator.clipboard) navigator.clipboard.writeText(txt).then(ok, ok);
+  else ok();
+}
+
+/* ========================= 설정 ========================= */
+function drawSettings() {
+  const sc = $('screen'); sc.innerHTML = '';
+  sc.appendChild(el('h3', null, '설정'));
+
+  const row = el('div', 'btnrow');
+  const b = el('button', 'ghost', '처음부터 다시하기');
+  b.onclick = () => 팝업(p => {
+    p.appendChild(el('h2', null, '처음부터 다시할까요?'));
+    p.appendChild(el('div', 'desc center',
+      '지금 회사는 사라집니다.\n진단서 변천사는 남습니다.'));
+    const r = el('div', 'btnrow');
+    const no = el('button', 'ghost', '아니요'); no.onclick = 팝업닫기;
+    const yes = el('button', null, '다시하기');
+    yes.onclick = () => { 저장삭제(); 팝업닫기(); 새게임(); };
+    r.appendChild(no); r.appendChild(yes); p.appendChild(r);
+  });
+  row.appendChild(b);
+  sc.appendChild(row);
+
+  const n = el('div', 'savenote' + (저장막힘 ? ' warn' : ''));
+  n.appendChild(el('b', null, 저장막힘 ? '저장이 막혀 있습니다' : '자동 저장됩니다'));
+  n.appendChild(el('span', null, 저장막힘
+    ? '프라이빗 브라우징이면 창을 닫을 때 진행이 사라집니다. 일반 창에서 열어주세요.'
+    : '이 브라우저에 저장됩니다 (localStorage / ' + KEY + ').'));
+  sc.appendChild(n);
+}
+
+/* ========================= 타이틀 · 인트로 ========================= */
+function drawTitle() {
+  const app = $('app');
+  app.innerHTML = '';
+  const w = el('div'); w.id = 'title';
+  w.appendChild(el('h1', null, '사장으로 살아남기'));
+  w.appendChild(el('div', 'tag', 'IT 회사를 키우는 분기 선택형 타이쿤'));
+  const menu = el('div', 'menu');
+  const saved = load();
+  if (saved) {
+    const c = el('button', 'primary');
+    c.appendChild(el('span', null, '이어하기'));
+    c.appendChild(el('span', 's', Math.floor(saved.S.분기 / 4) + 1 + '년차 · 직원 ' + saved.S.직원 + '명'));
+    c.onclick = () => { S = saved.S; V.배치 = saved.배치; V.진행 = saved.진행;
+                        V.화면 = 'play'; draw(); };
+    menu.appendChild(c);
+  }
+  const n = el('button', saved ? '' : 'primary', '새로 시작');
+  n.onclick = () => { 저장삭제(); V.화면 = 'intro'; draw(); };
+  menu.appendChild(n);
+  w.appendChild(menu);
+  const h = 변천사();
+  w.appendChild(el('div', 'foot', h.length ? '지금까지 받은 진단서 ' + h.length + '장' : ''));
+  app.appendChild(w);
+}
+
+function drawIntro() {
+  const app = $('app'); app.innerHTML = '';
+  const w = el('div'); w.id = 'intro';
+  w.appendChild(el('div', 'line',
+    '열심히 회사생활을 하며 돈을 모은 00씨!\n이제 나도 회사를 차려보겠어!\n'
+    + '가진 돈은 3천만원...\n나 잘할 수 있을까...??'));
+  const b = el('button', null, '창업하기');
+  b.onclick = 새게임;
+  w.appendChild(b);
+  app.appendChild(w);
+}
+
+function 새게임() {
+  S = G.newGame();
+  V.배치 = [null, null, null, null];
+  V.진행 = 0; V.돌아가는중 = false;
+  V.화면 = 'play'; V.탭 = '회사';
+  save(); draw();
+}
+
+/* ========================= 그리기 진입점 ========================= */
+function drawTabs() {
+  const t = $('tabs'); t.innerHTML = '';
+  for (const nm of ['회사','보고서','설정']) {
+    const b = el('button', V.탭 === nm ? 'on' : '', nm);
+    b.onclick = () => { V.탭 = nm; draw(); };
+    t.appendChild(b);
+  }
+}
+
+function draw() {
+  if (V.화면 === 'title') { drawTitle(); return; }
+  if (V.화면 === 'intro') { drawIntro(); return; }
+  // 타이틀/인트로가 #app 을 통째로 갈아치우므로 되돌려놓는다
+  if (!$('bar')) {
+    $('app').innerHTML = '<div id="bar"></div><div id="screen"></div><div id="tabs"></div>';
+  }
+  drawBar();
+  if (V.탭 === '회사') drawPlay();
+  else if (V.탭 === '보고서') drawReport();
+  else drawSettings();
+  drawTabs();
+}
+
+/* 저장이 실제로 되는지 먼저 찔러본다 — 있는 척하다 쓰기에서 던지는 환경이 있다 */
+try { localStorage.setItem(KEY + '__probe', '1'); localStorage.removeItem(KEY + '__probe'); }
+catch (e) { 저장막힘 = true; }
+
+draw();
+
+/* 테스트 하네스가 내부 상태를 들여다볼 수 있게 열어둔다 (브라우저에서도 무해) */
+window.__ui = { get S(){ return S; }, V, draw };
 </script>
 </html>
