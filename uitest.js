@@ -2,7 +2,7 @@
    이 맥엔 브라우저 자동화가 없고 sim.js 는 로직 블록만 읽으므로,
    화면 전용 버그(과거 const 충돌 2회)를 잡으려면 이게 필요하다 */
 const fs = require('fs'), vm = require('vm'), path = require('path');
-const dir = '/Users/minji/study/toy/boss';
+const dir = __dirname;     // 이 파일이 저장소 뿌리에 있다
 
 /* ── DOM ── */
 let nid = 0;
