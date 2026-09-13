@@ -240,7 +240,7 @@ body{background:var(--soft);color:var(--ink);
 .chat .ln.me{align-self:flex-end;align-items:flex-end}
 .chat .ln.you{align-self:flex-start;align-items:flex-start}
 /* 나레이션·효과음 = 메신저의 "OO님이 들어왔습니다" 자리 */
-.chat .ln.nar{align-self:center;max-width:94%;text-align:center;padding:2px 0;
+.chat .ln.nar{align-self:center;max-width:94%;text-align:center;padding:2px 0;white-space:pre-line;
               font-size:11.5px;color:#8b84a8;line-height:1.55}
 .chat .nm{font-size:10.5px;font-weight:bold;color:#8b84a8;margin-bottom:3px;padding:0 2px}
 .chat .bb{border-radius:12px;padding:8px 11px;font-size:13.5px;line-height:1.5;
@@ -434,6 +434,21 @@ const CFG = {
                            // 그러면 영업(배수 0.2, 평판+8) 이 돈만 버리는 열등 선택지가 된다
   회복률하: 0.07,          // 목표보다 낮을 때 — 세게 당긴다 (죽음의 나선 방지)
   회복률상: 0.04,          // 목표보다 높을 때 — 약하게 (안 그러면 과열 구간에 도달을 못 한다)
+
+  /* 과밀 — 단계 정원(최대직원)을 넘긴 만큼 매출 효율이 떨어진다.
+     없으면 매출도 지출도 직원 수에 정비례라 비율이 안 변하고,
+     한계 이익이 항상 +2,027만이라 무한 채용이 언제나 이득이 된다 (브레이크가 없다).
+     승급하면 정원이 올라 과밀이 리셋되므로 "더 뽑고 싶으면 먼저 승급하라" 가 된다.
+     대기업은 최대직원이 1e9 라 페널티가 없다 — 엔딩 이후는 자유 */
+  과밀여유: 2.0,           // 구간 정원(최대직원)의 몇 배까지 봐줄까.
+                           // 최대직원 40/90/140 은 가민지가 정한 구간표라 직접 고치지 않는다
+  과밀강도: 0.80,          // 실측: 여유 2.0 · 강도 0.8 에서 평균 직원 315→252명, 엔딩 63→54%
+  /* 아무리 넘쳐도 매출 계수가 여기까지만 떨어진다 — 게임 장치가 아니라 안전망이다.
+     0.4 이하로 낮추면 "작정하고 회사를 키우는 플레이어" 가 12년차에 전원 적자가 된다
+     (실측 흑자 87% → 0%).
+     대신 바닥에 붙는 구간(중견 455명 이상)에서는 페널티가 더 세지지 않아
+     자르는 게 이득이 아니게 된다. 거기까지 가려면 경고문을 한참 무시해야 한다 */
+  과밀하한: 0.50,
 };
 
 /* --------------------------------------------------------------------------
@@ -505,13 +520,24 @@ function 승급판정(S) {
   return { 가능: 항목.every(x => x.현재 >= x.필요), 항목, 다음: CFG.단계[n].이름 };
 }
 
+/* 과밀 정원 대비 몇 배나 넘쳤나. 0 이면 정상.
+   승급 문턱(50/100/150)은 전부 과밀 시작선(80/180/280) 아래라 정상 진행에는 안 걸린다 */
+function 과밀도(S) {
+  const 정원 = 단계(S).최대직원 * CFG.과밀여유;
+  return Math.max(0, S.직원 / 정원 - 1);
+}
+/* 매출에 곱하는 계수. 계수(평판)·계수(분위기)·계수(실력) 과 같은 자리에 하나 더 붙는다 */
+function 과밀비(S) {
+  return Math.max(CFG.과밀하한, 1 - 과밀도(S) * CFG.과밀강도);
+}
+
 function 매출(S, slot) {
   const w = CFG.업무[slot];
   const 배수 = w ? w.배수 : CFG.인력배수;
   const 연차 = Math.floor(S.분기 / 4);
   return Math.round(
     S.직원 * CFG.기본매출 * Math.pow(1 + CFG.매출연상승, 연차) *
-    계수(S.실력) * 계수(S.평판) * 계수(S.분위기) * 배수
+    계수(S.실력) * 계수(S.평판) * 계수(S.분위기) * 과밀비(S) * 배수
   );
 }
 
@@ -580,7 +606,6 @@ function newGame() {
     최저돈: CFG.시작돈,
     과열분기: 0,            // 어떤 지표든 90 이상이었던 분기 수
     위험분기: 0,            // 어떤 지표든 20 미만이었던 분기 수
-    계획수정: 0, 계획유지: 0,
     무산: 0,                // 돈이 모자라 인력관리가 무산된 분기 수
   };
 }
@@ -778,11 +803,6 @@ function 이벤트적용(S, e, choose) {
   return 고른;
 }
 
-function 계획수정기록(S, 수정함) {
-  if (수정함) { 축가산(S, "P", 1); S.계획수정++; }
-  else        { 축가산(S, "J", 1); S.계획유지++; }
-}
-
 /* ========================= 승급 ========================= */
 function 승급확인(S, prevIdx) {
   if (승급판정(S).가능) {
@@ -831,7 +851,7 @@ window.__game = {
   newGame, runQuarter, diagnose,
   계수, 단계, 단계인덱스, 매출, 지출, 자연회복, 승급판정,
   채용인원, 해고인원, 슬롯비용, 선택가능,
-  이벤트뽑기, 이벤트적용, 계획수정기록, 승급확인,
+  이벤트뽑기, 이벤트적용, 승급확인, 과밀도, 과밀비,
   스토리, 단계열림, 선택지가능, 등장가능,
 };
 </script>
@@ -878,6 +898,8 @@ function 금액(v) {
   const 억 = Math.floor(m / 10000), 만 = m % 10000;
   return s + 억.toLocaleString() + '억' + (만 ? ' ' + 만.toLocaleString() + '만' : '');
 }
+/* 축 표본은 가중치(1.0 · 0.3 …) 합이라 부동소수점 찌꺼기가 붙는다. 18.4 로 보여준다 */
+const 표본표기 = v => (Math.round(v * 10) / 10).toString();
 const 색 = v => v < 20 ? 'var(--risk)' : v < 40 ? 'var(--meh)'
               : v < 75 ? 'var(--safe)' : v < 90 ? 'var(--hot)' : 'var(--risk)';
 
@@ -889,6 +911,7 @@ const 경고문 = [
   [s => s.분위기 >= 90, '직원들의 사이가 너무 좋아 놀기만 합니다'],
   [s => s.실력 < 10,    '직원들이 실적을 내지 못하고 있습니다'],
   [s => s.실력 >= 90,   '직원들이 일만 해서 컨디션이 안 좋아졌습니다'],
+  [s => G.과밀도(s) > 0.2, '회사 규모에 비해 직원수가 너무 많아 매출에 영향이 생깁니다'],
 ];
 
 /* ========================= 저장 ========================= */
@@ -1394,32 +1417,14 @@ function 결과팝업(고른, 전, done) {
   });
 }
 
-/* 기획 §2 — 사건이 터지면 계획 수정 기회. 이게 J/P 측정 지점이다 */
-function 계획수정팝업(done, 다시짜기) {
-  if (V.진행 >= 4) { G.계획수정기록(S, false); done(); return; }
-  팝업(p => {
-    p.appendChild(el('h2', null, '계획을 바꾸시겠습니까?'));
-    p.appendChild(el('div', 'desc center', '남은 분기 계획이 아직 그대로입니다.'));
-    const row = el('div', 'btnrow');
-    const keep = el('button', 'ghost', '그대로 간다');
-    keep.onclick = () => { G.계획수정기록(S, false); 팝업닫기(); done(); };
-    const chg = el('button', null, '다시 짠다');
-    chg.onclick = () => {
-      G.계획수정기록(S, true);
-      for (let i = V.진행; i < 4; i++) V.배치[i] = null;
-      팝업닫기(); 다시짜기();
-    };
-    row.appendChild(keep); row.appendChild(chg); p.appendChild(row);
-  });
-}
-
 function 진단서팝업(단계이름, d, done) {
   팝업(p => {
     p.appendChild(el('h2', null,단계이름 + ' 달성!'));
     const tb = el('div', 'typebox');
     tb.appendChild(el('div', 'typename', d.유형));
     tb.appendChild(el('div', 'typesub',
-      '표본 ' + d.최소표본 + ' · 확신도 ' + Math.round(d.평균확신 * 100) + '%'));
+      /* 가중치가 0.3 같은 소수라 표본이 18.400000000000002 로 나온다. 소수 한 자리로 자른다 */
+      '표본 ' + 표본표기(d.최소표본) + ' · 확신도 ' + Math.round(d.평균확신 * 100) + '%'));
     p.appendChild(tb);
     const h = 변천사();
     if (h.length > 1) {
@@ -1519,11 +1524,13 @@ function 분기실행(slot, choose) {
   };
   const 이어서 = () => 승급처리(다음분기);
   // 계획을 다시 짜면 배치판으로 돌아가지만, 승급 확인은 그대로 거친다
-  const 배치판으로 = () => 승급처리(() => { V.돌아가는중 = false; draw(); save(); });
-
+  /* 이벤트 뒤에 "계획을 바꾸시겠습니까?" 를 묻던 자리다 (2026-09-13 제거).
+     [그대로 간다] 는 1탭, [다시 짠다] 는 최대 5탭이라 귀찮은 사람이 전부 J 로 측정됐다
+     (실측: P 성향이 이벤트를 P 로 골라도 J 15 : P 3 으로 뒤집혔다).
+     J/P 는 이제 이벤트 선택지로만 잰다 — 이벤트 16~21 이 그 표본을 대신 받는다 */
   const 다음 = () => {
     const ev = G.이벤트뽑기(S, Math.random);
-    if (ev) 이벤트팝업(ev, () => 계획수정팝업(이어서, 배치판으로));
+    if (ev) 이벤트팝업(ev, 이어서);
     else 이어서();
   };
 
