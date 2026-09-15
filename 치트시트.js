@@ -36,7 +36,7 @@ for (const t of ['T','F']) for (const j of ['J','P'])
 /* 그 성향대로 48분기를 플레이하고 무엇을 눌렀는지 기록한다 */
 function 한판(성향, seed) {
   const rnd = mulberry32(seed);
-  const S = G.newGame();
+  const S = G.newGame(seed);   // 선택지 순서 셔플용 씨앗
   const p = { E:()=>성향.E, I:()=>1-성향.E, S:()=>성향.S, N:()=>1-성향.S,
               T:()=>성향.T, F:()=>1-성향.T, J:()=>성향.J, P:()=>1-성향.J };
   const choose = (sl, o) => {

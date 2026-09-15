@@ -230,7 +230,8 @@ function makePlayer(G, 성향, rnd, 인력비율, 편향) {
    ------------------------------------------------------ */
 function 성장한판(G, seed, 분기수) {
   const rnd = mulberry32(seed);
-  const S = G.newGame();
+  // 씨앗을 넘긴다 — 선택지 순서가 판마다 섞이는데, 시뮬은 재현 가능해야 한다 (함정 4)
+  const S = G.newGame(seed);
   const choose = (slot, opts) => Math.floor(rnd() * opts.length);
   let prev = 0;
 
@@ -256,7 +257,7 @@ function 성장한판(G, seed, 분기수) {
 function run(G, 성향, seed, 분기수, 인력비율, 편향) {
   const rnd = mulberry32(seed);
   const P = makePlayer(G, 성향, rnd, 인력비율, 편향);
-  const S = G.newGame();
+  const S = G.newGame(seed);
   let prevIdx = 0;
   const 추이 = [];
 
@@ -824,6 +825,8 @@ for (const b of 편향판정) {
 }
 L(`\n    ${편향통과}/${편향전체} 통과`);
 if (편향통과 < 편향전체)
-  L('    ※ 실패는 예상된 것이다 — 이어하기 §1 (배치판 측정 제거) 이 아직 미구현이다.\n'
-  + '      이 숫자가 고치기 전/후를 비교하는 기준선이다 (함정 14)');
+  L('    ※ 남은 실패는 전부 문구 작업이다 — 코드로는 더 못 고친다 (이어하기 §1-12).\n'
+  + '      짧은것 = 선택지 글자 수 편차 (id 5·7·9·10·13·16)\n'
+  + '      사장연기 = J 가 "유능한 사장", P 가 "직무유기" 로 읽힌다 (기준선은 id15)\n'
+  + '      위치 편향은 판마다 섞어서 해결했다 (index.html 선택지순서)');
 L('='.repeat(74));
