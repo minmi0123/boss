@@ -41,7 +41,13 @@ function 한판(성향, seed) {
               T:()=>성향.T, F:()=>1-성향.T, J:()=>성향.J, P:()=>1-성향.J };
   const choose = (sl, o) => {
     if (sl === '채용방침') return rnd() < 성향.T ? 0 : 1;
-    const sc = o.map(x => x.축 ? p[x.축]() * (x.강도 || 1) : 0.5);
+    const sc = o.map(x => {
+      if (!x.축) return 0.5;
+      // 축이 두 글자면('ES') 두 축을 동시에 재는 선택지다 → 확률의 곱 (sim.js 와 같은 규칙)
+      let v = 1;
+      for (const c of x.축) v *= (p[c] ? p[c]() : 0.5);
+      return v * (x.강도 || 1);
+    });
     let sum = sc.reduce((a,b)=>a+b,0), r = rnd() * sum;
     for (let i = 0; i < o.length; i++) { r -= sc[i]; if (r <= 0) return i; }
     return 0;
@@ -101,22 +107,43 @@ L.push('> 축이나 선택지를 바꾸면 `node 치트시트.js` 를 다시 돌
 L.push('');
 L.push('---');
 L.push('');
-L.push('## 1. E/I · S/N — 배치판 네 칸이 그대로 두 축이다');
+L.push('## 1. E/I · S/N — 사분면 선택지에서만 갈린다');
+L.push('');
+L.push('> **배치판은 성격을 재지 않는다** (2026-09-15). 예전엔 영업 E·S / 마케팅 E·N /');
+L.push('> 개발 I·N / 외주 I·S 였는데, 매출 배수가 0.2~1.3 이고 그 수치가 화면에 보여서');
+L.push('> 누구나 외주·개발을 눌렀다 → 전원 I (기획 §14 함정 15). 배치판은 이제 전략 전용이다.');
 L.push('');
 L.push('```');
 L.push('           밖으로 (E)        안에서 (I)');
-L.push('  지금(S)   영업              외주');
-L.push('  나중(N)   마케팅            개발');
+L.push('  지금(S)   E·S               I·S');
+L.push('  나중(N)   E·N               I·N');
 L.push('```');
+L.push('');
+L.push('무엇을 골라도 E/I 와 S/N 이 한 번에 들어온다.');
+L.push('');
+const 사분면 = [];
+for (const e of 스토리)
+  for (const c of e.선택)
+    if ((c.축 || '').length === 2)
+      사분면.push(`| 이벤트${e.id} (${e.단계}) | \`${c.축}\` | ${c.글} |`);
+for (const [slot, opts] of Object.entries(G.트리거))
+  for (const c of opts)
+    if ((c.축 || '').length === 2)
+      사분면.push(`| ${slot} 트리거 | \`${c.축}\` | ${c.글} |`);
+L.push('| 어디 | 축 | 선택지 |');
+L.push('|---|:-:|---|');
+L.push(...사분면);
+L.push('');
+L.push('### 배치판 네 칸 (전략 전용 — 성격과 무관)');
 L.push('');
 const 슬롯설명 = [];
 for (const [nm, w] of Object.entries(G.CFG.업무)) {
   const 효 = [];
   for (const k of ['평판','실력','분위기']) if (w[k]) 효.push(k + (w[k]>0?'+':'') + w[k]);
-  슬롯설명.push(`| **${nm}** | ${w.ei} · ${w.sn} | ×${w.배수} | ${효.join(' · ') || '—'} |`);
+  슬롯설명.push(`| **${nm}** | ×${w.배수} | ${효.join(' · ') || '—'} |`);
 }
-L.push('| 슬롯 | 축 | 매출 배수 | 지표 |');
-L.push('|---|---|--:|---|');
+L.push('| 슬롯 | 매출 배수 | 지표 |');
+L.push('|---|--:|---|');
 L.push(...슬롯설명);
 L.push('');
 L.push(`> **영업만 예외** — 평판이 ${G.CFG.영업과잉선} 이상이면 +8 이 아니라 −6 이 된다 (무리한 영업).`);
@@ -132,7 +159,7 @@ const 첫줄 = e => { const x = e.글[0]; return typeof x === 'string' ? x : x.�
 
 const tf행 = [];
 for (const e of 스토리) {
-  const T = e.선택.filter(c => c.축==='T'), F = e.선택.filter(c => c.축==='F');
+  const T = e.선택.filter(c => (c.축||'').includes('T')), F = e.선택.filter(c => (c.축||'').includes('F'));
   if (!T.length && !F.length) continue;
   const 라 = c => c.글 + (c.강도===2 ? ' *(강)*' : c.강도===1 ? ' *(약)*' : '');
   tf행.push(`| ${e.id} | ${첫줄(e).slice(0,22)} | ${T.map(라).join('<br>') || '—'} | ${F.map(라).join('<br>') || '—'} |`);
@@ -148,7 +175,7 @@ L.push('|---|---|---|');
 for (const k of ['채용','해고','교육']) {
   const o = G.트리거[k];
   const 라 = c => c.글 + (c.강도===2 ? ' *(강)*' : c.강도===1 ? ' *(약)*' : '');
-  L.push(`| ${k} | ${o.filter(c=>c.축==='T').map(라).join('<br>')} | ${o.filter(c=>c.축==='F').map(라).join('<br>')} |`);
+  L.push(`| ${k} | ${o.filter(c=>(c.축||'').includes('T')).map(라).join('<br>')} | ${o.filter(c=>(c.축||'').includes('F')).map(라).join('<br>')} |`);
 }
 L.push('');
 L.push('---');
@@ -163,10 +190,10 @@ L.push('| 버튼 | **J** 쪽 | **P** 쪽 |');
 L.push('|---|---|---|');
 {
   const o = G.트리거['휴가'];
-  L.push(`| 휴가 트리거 | ${o.filter(c=>c.축==='J').map(c=>c.글).join('<br>')} | ${o.filter(c=>c.축==='P').map(c=>c.글).join('<br>')} |`);
+  L.push(`| 휴가 트리거 | ${o.filter(c=>(c.축||'').includes('J')).map(c=>c.글).join('<br>')} | ${o.filter(c=>(c.축||'').includes('P')).map(c=>c.글).join('<br>')} |`);
 }
 for (const e of 스토리) {
-  const J = e.선택.filter(c=>c.축==='J'), Pp = e.선택.filter(c=>c.축==='P');
+  const J = e.선택.filter(c=>(c.축||'').includes('J')), Pp = e.선택.filter(c=>(c.축||'').includes('P'));
   if (!J.length && !Pp.length) continue;
   const 라 = c => c.글 + (c.강도===2 ? ' *(강)*' : c.강도===1 ? ' *(약)*' : '');
   L.push(`| 이벤트 ${e.id} · ${첫줄(e).slice(0,18)} | ${J.map(라).join('<br>') || '—'} | ${Pp.map(라).join('<br>') || '—'} |`);
