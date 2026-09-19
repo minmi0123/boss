@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>사장으로 살아남기</title>
+<meta name="description" content="IT 회사를 키우는 분기 선택형 타이쿤. 설문 0문항으로 MBTI를 진단한다.">
+
+<!-- favicon — 이모지를 SVG 로 감싼다. 별도 파일이 필요 없고 404 도 안 난다 ('직장인' 계승) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%A2%3C/text%3E%3C/svg%3E">
+<style>
+/* ==========================================================================
+   '직장인으로 살아남기' 뼈대 계승 (기획 §0 "UI 뼈대 그대로, 색만 밝게")
+   달라진 것: 흑백 → 밝은 색. 게이지는 안전 구간을 색으로 표시한다 (기획 §3)
+   ========================================================================== */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#2b2b33; --line:#d8d3ea; --line2:#b9b2d6;
+  --bg:#fdfcff; --panel:#fff; --soft:#f4f1fb; --accent:#6c5ce7; --accent2:#f0ecff;
+  /* 기획 §3 안전 구간 색 */
+  --risk:#e8556d; --meh:#f0993e; --safe:#3fb984; --hot:#e8c33e;
+}
+body{background:var(--soft);color:var(--ink);
+     font-family:"Apple SD Gothic Neo","Noto Sans KR","맑은 고딕","Malgun Gothic",
+                 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%}
+#app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;
+     background:var(--bg);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+
+/* ── 상태바 ── */
+#bar{border-bottom:2px solid var(--line2);padding:9px 11px;position:sticky;top:0;
+     background:var(--panel);z-index:10}
+#bar .row1{display:flex;justify-content:space-between;align-items:baseline;
+           font-weight:bold;margin-bottom:7px}
+#bar .row1 .yr{font-size:16px}
+#bar .row1 .stg{font-size:12px;color:var(--accent);font-weight:bold}
+.money{display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin-bottom:5px}
+.money .v{font-variant-numeric:tabular-nums}
+.money .v.minus{color:var(--risk)}
+.g{display:flex;align-items:center;gap:7px;margin:3px 0;font-size:12px}
+.g .nm{width:46px;flex:none;color:#66607e}
+.g .track{flex:1;height:11px;border:1px solid var(--line2);background:#fff;
+          position:relative;border-radius:6px;overflow:hidden}
+/* 안전 구간(40~75) 표시 — 어디가 좋은지 모르면 답답하다 (기획 §3) */
+.g .track::before{content:'';position:absolute;left:40%;width:35%;top:0;bottom:0;
+                  background:var(--accent2)}
+.g .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;
+         transition:width .45s cubic-bezier(.22,1,.36,1),background .3s ease}
+.g .val{width:26px;text-align:right;flex:none;font-variant-numeric:tabular-nums;font-weight:bold}
+.goal{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:7px;
+      padding-top:7px;border-top:1px dashed var(--line)}
+.goal .nm{font-size:11.5px;font-weight:bold;color:var(--accent);margin-right:2px}
+.goal .need{font-size:11px;border:1px solid var(--line2);border-radius:5px;padding:1px 6px;color:#78718f}
+.goal .need.ok{border-color:var(--safe);color:var(--safe);font-weight:bold}
+#bar .hint{font-size:11.5px;color:var(--accent);font-weight:bold;margin-top:5px}
+#warnrow{font-size:11.5px;margin-top:6px;color:var(--risk);line-height:1.45;white-space:pre-line}
+
+/* ── 본문 ── */
+#screen{flex:1;padding:12px 11px 16px;overflow-y:auto}
+/* 회사 탭만 — 사무실과 배치판을 고정하고 카드만 스크롤한다.
+   말풍선이 사무실 위에 뜨는데, 인력관리 카드가 접힘 아래라 스크롤을 내리면 안 보였다.
+   position:sticky 대신 flex 로 스크롤 영역을 따로 만든다 (겹침·그림자 문제가 없다) */
+#screen.play{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
+#screen.play .stickytop{flex:none}
+#screen.play .scrollzone{flex:1;overflow-y:auto;padding:9px 0 14px;
+                         border-top:1px solid var(--line);margin-top:2px}
+/* 스크롤 영역이 좁으므로 사무실을 낮춘다 */
+#screen.play .stage-art svg{height:104px}
+/* ── 사무실 그림 (인라인 SVG) ── */
+/* 건물은 오른쪽, 말풍선은 왼쪽에 나란히.
+   겹쳐 띄우면 세로를 더 먹고, 스크롤을 내리면 말풍선이 화면 밖으로 나간다 */
+/* gap 이 있으면 풍경 땅선과 건물 땅선 사이가 그만큼 벌어져 땅이 끊겨 보인다.
+   말풍선 꼬리가 오른쪽으로 14px 나가지만 건물 SVG 의 그 자리는 빈 하늘이라 문제없다 */
+.artrow{display:flex;align-items:flex-end;gap:0;
+        border:1.5px solid var(--line);border-radius:12px;
+        background:linear-gradient(#f3f0ff 0%,#fbfaff 72%,#f6f4fd 100%);
+        padding:8px 10px;margin-bottom:6px;min-height:104px}
+/* padding-bottom 이 6 이면 말풍선이 땅선(바닥에서 8.6px)을 깔고 앉아 땅이 끊겨 보인다.
+   16 으로 띄워야 땅 위에 떠 있는 말처럼 읽힌다 */
+.artside{flex:1;min-width:0;position:relative;height:104px;padding-bottom:16px;
+         display:flex;flex-direction:column;justify-content:flex-end}
+/* 풍경은 오른쪽(건물 쪽) 끝에 붙는다. 화면이 좁으면 왼쪽부터 잘린다 —
+   줄여 그리면 도형 조합 수준에서 형체를 잃는다.
+   overflow 를 .artside 가 아니라 이 칸에만 거는 이유: 말풍선 꼬리가 오른쪽으로
+   14px 삐져나오는데 .artside 에 걸면 그 꼬리가 잘린다 */
+/* 왼쪽 끝을 흐리게 — 잘린 자동차·간판이 부스러기처럼 남지 않고 사라진다.
+   기기마다 잘리는 x 가 달라서(아이폰 184 · 갤럭시 209 · 큰 폰 120) 좌표로는 못 피한다 */
+.scenebox{position:absolute;inset:0;overflow:hidden;pointer-events:none;
+          -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34px);
+          mask-image:linear-gradient(90deg,transparent 0,#000 34px)}
+.scene{position:absolute;right:0;bottom:0;height:104px;width:auto;display:block}
+.scene .ground{fill:var(--line2)}
+.scene .tree{fill:#7fcf9f}
+.scene .trunk{fill:#b08968}
+.scene .bench{fill:#c6bedd}
+.scene .car{fill:#fff;stroke:var(--line2);stroke-width:1.5}
+.scene .wheel{fill:#8d86a8}
+.scene .post{fill:#b9b2d6}
+.scene .board{fill:#fff;stroke:var(--line2);stroke-width:1.5}
+.scene .boardline{fill:#d8d3ea}
+.stage-art{flex:none}
+.stage-art svg{display:block;height:104px;width:auto}
+
+.stage-art .body{fill:#fff;stroke:var(--line2);stroke-width:1.5}
+.stage-art .annex{fill:#f3f0ff;stroke:var(--line2);stroke-width:1.5}
+.stage-art .win{fill:#e9e5f7}
+.stage-art .win.on{fill:var(--hot)}
+.stage-art .door{fill:var(--accent);opacity:.8}
+.stage-art .sign{fill:var(--accent)}
+.stage-art .ground{fill:var(--line2)}
+.stage-art .tree{fill:#7fcf9f}
+.stage-art .trunk{fill:#b08968}
+.stage-art .cloud{fill:#fff;opacity:.85}
+
+/* 말풍선 — 꼬리가 오른쪽 건물을 향한다.
+   폭을 다 차지하면 짧은 대사에도 가로로 길게 늘어난다 → 내용만큼만 */
+.bubble{position:relative;z-index:1;background:var(--panel);border:1.5px solid var(--accent);
+        border-radius:12px;padding:7px 10px;
+        width:fit-content;max-width:100%;margin-right:auto;
+        box-shadow:0 3px 10px rgba(80,60,160,.14);
+        animation:말풍선 2.3s ease-out forwards}
+.bubble .who{display:block;font-size:10px;font-weight:bold;color:var(--accent);
+             letter-spacing:.5px;margin-bottom:1px}
+.bubble .say{display:block;font-size:13px;font-weight:bold;line-height:1.35}
+.bubble::before,.bubble::after{content:'';position:absolute;top:50%;
+        border:7px solid transparent;border-left-color:var(--accent);
+        transform:translateY(-50%)}
+.bubble::before{right:-14px}
+.bubble::after{right:-11.5px;border-left-color:var(--panel)}
+@keyframes 말풍선{
+  0%{opacity:0;transform:translateX(-6px) scale(.92)}
+  10%{opacity:1;transform:translateX(0) scale(1.03)}
+  16%{transform:translateX(0) scale(1)}
+  84%{opacity:1;transform:translateX(0) scale(1)}
+  100%{opacity:0;transform:translateX(0) scale(.98)}
+}
+
+/* 불 켜진 창이 저마다 다른 박자로 깜빡인다 — 사람이 일하고 있다는 신호 */
+@keyframes 창불{0%,100%{opacity:1}45%{opacity:.45}}
+.stage-art .win.on{animation:창불 var(--d,3s) ease-in-out var(--w,0s) infinite}
+/* 사람이 아주 약하게 들썩인다 — 서 있는 그림이 아니라 사는 그림이 된다 */
+@keyframes 사람흔들{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+.scene .person{animation:사람흔들 var(--d,3s) ease-in-out var(--w,0s) infinite}
+@keyframes 구름{from{transform:translateX(0)}to{transform:translateX(12px)}}
+.stage-art .c1{animation:구름 9s ease-in-out infinite alternate}
+.stage-art .c2{animation:구름 13s ease-in-out infinite alternate-reverse}
+/* 땅선은 이 g 밖에 있어서 안 움직인다 — 건물만 솟는다.
+   svg 에 걸면 10px = CSS 픽셀이지만 g 에 걸면 뷰박스 단위(1 ≈ 0.61px)라 16 으로 키워야
+   전과 같은 거리만큼 움직인다.
+   ※ 이름은 승급이지만 실제로는 다시 그릴 때마다 돈다 — 버튼 누를 때 반응이 있어 그대로 둔다 */
+@keyframes 건물솟기{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+.stage-art .rise{animation:건물솟기 .35s ease-out}
+
+/* 게이지·팝업 */
+@keyframes 팝등장{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.pop{animation:팝등장 .18s ease-out}
+@keyframes 진단반짝{0%,100%{box-shadow:0 0 0 0 rgba(108,92,231,.35)}
+                   50%{box-shadow:0 0 0 9px rgba(108,92,231,0)}}
+.typebox{animation:진단반짝 1.6s ease-out 2}
+@keyframes 칩달성{from{transform:scale(1)}50%{transform:scale(1.12)}to{transform:scale(1)}}
+.goal .need.ok{animation:칩달성 .4s ease-out}
+
+/* 움직임을 원치 않는 사람에게는 전부 끈다 */
+@media (prefers-reduced-motion:reduce){
+  .stage-art .win.on,.stage-art .c1,.stage-art .c2,.stage-art .rise,
+  .pop,.typebox,.goal .need.ok,.bubble,.chat .ln,.scene .person{animation:none}
+}
+
+/* ── 분기 배치판 ── */
+.plan{border:1.5px solid var(--line2);border-radius:10px;background:var(--panel);
+      padding:8px;margin-bottom:6px}
+.plan .hd{display:flex;justify-content:space-between;align-items:center;
+          font-size:12px;color:#66607e;margin-bottom:7px}
+.qrow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.q{border:1.5px solid var(--line);border-radius:8px;background:var(--soft);
+   min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+   font-size:12.5px;font-weight:bold;cursor:pointer;padding:4px 2px;text-align:center}
+.q .qn{font-size:10px;font-weight:normal;color:#9a93b8;margin-bottom:2px}
+.q.filled{background:var(--accent2);border-color:var(--accent)}
+.q.cur{box-shadow:0 0 0 2px var(--accent)}
+.q.done{opacity:.45}
+.q .empty{color:#b5aed0;font-weight:normal}
+.go{width:100%;margin-top:7px;border:1.5px solid var(--accent);border-radius:8px;
+    background:var(--accent);color:#fff;padding:9px;font:inherit;font-size:15px;
+    font-weight:bold;cursor:pointer}
+.go:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── 선택지 카드 (배치판 = 수치 공개, 기획 §9) ── */
+.grp{margin-bottom:10px}
+.grp .gh{font-size:12px;color:#66607e;margin-bottom:5px;font-weight:bold}
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.card{border:1.5px solid var(--line2);border-radius:9px;padding:9px 6px;cursor:pointer;
+      background:var(--panel);text-align:center;font:inherit;color:inherit;font-weight:bold;
+      font-size:14px;min-height:56px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center}
+.card .e{display:block;font-size:11px;color:#78718f;font-weight:normal;margin-top:3px;
+         letter-spacing:-.3px;line-height:1.35}
+.card:active{background:var(--accent2)}
+@media (hover:hover){ .card:not(.lock):hover{background:var(--accent2)} }
+/* 미해금 — 흐리게가 아니라 점선 + 회색. 조건 문구가 읽혀야 하므로 (규칙 §4-2) */
+.card.lock{cursor:not-allowed;border-style:dashed;border-color:#c9c3dd;color:#a49dbd;
+           background:var(--panel)}
+.card.lock .e{color:#a49dbd}
+
+/* ── 탭바 ── */
+#tabs{display:flex;border-top:2px solid var(--line2);position:sticky;bottom:0;background:var(--panel)}
+#tabs button{flex:1;padding:11px 2px;border:none;border-right:1px solid var(--line);
+             background:var(--panel);font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+#tabs button:last-child{border-right:none}
+#tabs button.on{background:var(--accent);color:#fff;font-weight:bold}
+
+/* ── 팝업 ── */
+#overlay{position:fixed;inset:0;background:rgba(40,35,60,.55);display:none;
+         align-items:center;justify-content:center;padding:16px;z-index:50}
+#overlay.on{display:flex}
+.pop{background:var(--panel);border:2px solid var(--line2);border-radius:14px;max-width:420px;
+     width:100%;padding:18px 16px;max-height:90vh;overflow-y:auto}
+.pop h2{text-align:center;font-size:18px;margin-bottom:10px}
+.pop .desc{margin-bottom:14px;white-space:pre-line;font-size:14px;line-height:1.65}
+.pop .opts{display:flex;flex-direction:column;gap:8px}
+.pop .opts button{border:1.5px solid var(--line2);border-radius:9px;background:var(--panel);
+                  padding:11px;font:inherit;cursor:pointer;text-align:left;color:inherit}
+@media (hover:hover){ .pop .opts button:not(.lock):hover{background:var(--accent2)} }
+/* 이벤트 선택지는 수치를 숨긴다 (기획 §9 · 규칙 §4-2) — 보이면 계산으로 고른다 */
+.pop .opts button.lock{border-style:dashed;border-color:#c9c3dd;color:#a49dbd;cursor:not-allowed}
+.pop .opts button.lock .lk{display:block;font-size:11px;margin-top:4px}
+.pop .res{border:1.5px solid var(--line2);border-radius:9px;background:var(--soft);
+          padding:11px;margin-bottom:12px;font-size:13.5px;line-height:1.6;white-space:pre-line}
+.pop .deltas{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:9px}
+.pop .dl{font-size:12px;font-weight:bold;border-radius:6px;padding:2px 7px;background:var(--accent2)}
+.pop .dl.up{color:#1f8a5f} .pop .dl.dn{color:#c33a52}
+
+/* ── 대화형 이벤트 (메신저 모양) ── */
+/* 바탕을 soft 로 깔아야 상대 말풍선(흰색)이 떠 보인다.
+   팝업 자체가 흰색이라 바탕을 안 깔면 왼쪽 말풍선이 배경에 묻는다 */
+.chat{background:var(--soft);border:1.5px solid var(--line);border-radius:12px;
+      padding:11px 10px;margin-bottom:13px;
+      display:flex;flex-direction:column;gap:7px}
+.chat .ln{display:flex;flex-direction:column;max-width:80%}
+.chat .ln.me{align-self:flex-end;align-items:flex-end}
+.chat .ln.you{align-self:flex-start;align-items:flex-start}
+/* 나레이션·효과음 = 메신저의 "OO님이 들어왔습니다" 자리 */
+.chat .ln.nar{align-self:center;max-width:94%;text-align:center;padding:2px 0;white-space:pre-line;
+              font-size:11.5px;color:#8b84a8;line-height:1.55}
+.chat .nm{font-size:10.5px;font-weight:bold;color:#8b84a8;margin-bottom:3px;padding:0 2px}
+.chat .bb{border-radius:12px;padding:8px 11px;font-size:13.5px;line-height:1.5;
+          white-space:pre-line;word-break:break-word}
+.chat .ln.you .bb{background:var(--panel);border:1.5px solid var(--line2);
+                  border-top-left-radius:3px}
+.chat .ln.me .bb{background:var(--accent);border:1.5px solid var(--accent);color:#fff;
+                 border-top-right-radius:3px}
+@keyframes 톡등장{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.chat .ln{animation:톡등장 .22s ease-out}
+
+/* ── 설정 토글 ── */
+.opt{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line2);
+     border-radius:10px;background:var(--panel);padding:11px 12px;margin-bottom:9px}
+.opt .t{flex:1;min-width:0}
+.opt .t b{display:block;font-size:13.5px}
+.opt .t span{display:block;font-size:11.5px;color:#78718f;margin-top:2px;line-height:1.5}
+.opt button{flex:none;border:1.5px solid var(--line2);border-radius:20px;background:var(--soft);
+            color:#78718f;padding:6px 14px;font:inherit;font-size:12.5px;font-weight:bold;
+            cursor:pointer}
+.opt button.on{border-color:var(--accent);background:var(--accent);color:#fff}
+.opt button:disabled{opacity:.4;cursor:not-allowed}
+.btnrow{display:flex;gap:8px;margin-top:13px}
+.btnrow button{flex:1;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);
+               color:#fff;padding:10px;font:inherit;font-weight:bold;cursor:pointer}
+.btnrow button.ghost{background:var(--panel);color:var(--accent)}
+
+/* ── 표 / 보고서 ── */
+h3{font-size:14.5px;border-bottom:1.5px solid var(--line2);padding-bottom:4px;margin:16px 0 8px}
+h3:first-child{margin-top:0}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left}
+th{background:var(--accent2);font-weight:bold}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.typebox{border:1.5px solid var(--accent);border-radius:11px;background:var(--accent2);
+         padding:13px;margin-bottom:12px;text-align:center}
+.typename{font-size:26px;font-weight:bold;letter-spacing:2px;color:var(--accent)}
+.typesub{font-size:12px;color:#66607e;margin-top:5px;line-height:1.55}
+.axrow{display:flex;align-items:center;gap:7px;font-size:12px;margin:5px 0}
+.axrow .ax{width:64px;flex:none;color:#66607e}
+.axrow .bar{flex:1;height:9px;border:1px solid var(--line2);border-radius:5px;background:#fff;
+            position:relative;overflow:hidden}
+.axrow .bar i{position:absolute;top:0;bottom:0;background:var(--accent)}
+.axrow .lb{width:74px;flex:none;text-align:right;font-weight:bold}
+.savenote{border:1px dashed var(--line2);border-radius:9px;padding:9px 10px;margin-top:14px;
+          font-size:11.5px;color:#78718f;line-height:1.6;text-align:center}
+.savenote b{display:block;font-size:12.5px;color:var(--ink);margin-bottom:3px}
+.savenote.warn{border:1.5px solid var(--risk);color:var(--ink)}
+
+/* ── 타이틀 / 인트로 ── */
+#title,#intro{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+              padding:26px 20px;text-align:center}
+#title h1{font-size:27px;letter-spacing:-1px;margin-bottom:6px}
+#title .tag{font-size:12.5px;color:#78718f;margin-bottom:24px}
+#title .menu{display:flex;flex-direction:column;gap:9px;width:100%;max-width:280px}
+#title .menu button{border:1.5px solid var(--accent);border-radius:9px;background:var(--panel);
+                    color:var(--accent);padding:13px;font:inherit;font-size:15px;
+                    font-weight:bold;cursor:pointer}
+#title .menu button.primary{background:var(--accent);color:#fff}
+#title .menu button:disabled{opacity:.3;cursor:not-allowed}
+#title .menu button .s{display:block;font-size:11px;font-weight:normal;margin-top:3px;opacity:.8}
+#title .foot{margin-top:22px;font-size:11px;color:#9a93b8}
+#intro .line{font-size:15.5px;line-height:2;white-space:pre-line;margin-bottom:24px}
+#intro button{border:1.5px solid var(--accent);border-radius:9px;background:var(--accent);
+              color:#fff;padding:13px;font:inherit;font-size:15px;font-weight:bold;
+              cursor:pointer;width:100%;max-width:280px}
+.center{text-align:center}
+.muted{color:#78718f;font-size:12px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bar"></div>
+  <div id="screen"></div>
+  <div id="tabs"></div>
+</div>
+<div id="overlay"><div class="pop" id="pop"></div></div>
+
+<script src="story.js"></script>
+<script>
+/* ==========================================================================
+   사장으로 살아남기 — 게임 로직
+   기획: 기획.md  /  이벤트 규칙: 이벤트_작성규칙.md
+   ※ 이 <script> 가 유일한 로직 원본이다. sim.js 가 이 파일을 그대로 구동한다.
+      절대 로직을 다른 곳에 복제하지 말 것 (앞 게임에서 두 번 어긋났음)
+   ========================================================================== */
+
+const CFG = {
+  /* ---- 시작 상태 ---- */
+  시작돈: 3000, 시작평판: 5, 시작분위기: 80, 시작실력: 30, 시작직원: 1,
+
+  /* ---- 돈 ---- */
+  기본매출: 2200,          // 직원 1명 / 1분기
+                           // 손익분기 배수 ≈ 0.58 → 영업만 적자, 마케팅은 본전, 인력관리는 흑자
+                           // 1000 이면 손익분기가 0.75 라 슬롯 4개 중 3개가 적자였다
+  인건비: 600,             // 1명 / 1분기 (대표 제외)
+  인건비연상승: 0.05,
+  /* 규모와 무관한 회사 운영비 — 세금·회계·기본 임대. 매년 오른다.
+     매출도 지출도 직원 수에 비례해서 회사 크기가 마진율을 안 바꾼다
+     → "작아도 괜찮다" 가 수학적으로 성립해 성장할 이유가 없어진다.
+     직원 수에 비례하지 않는 비용이 하나는 있어야 한다 (SB세션 §3-2 해법 ③)
+     세게 넣으면 안 된다: 2,000만·18% 로 잡았더니 승급을 노리는 사람조차
+     돈이 없어 채용을 못 해 스타트업에 75% 가 갇혔다 */
+  고정운영비: 800,
+  고정운영비상승: 0.15,
+  매출연상승: 0.035,       // 연차가 쌓이면 단가를 올려 받는다.
+                           // 이게 없으면 인건비만 매년 5% 복리로 오르고 매출 단가는 고정이라
+                           // 규모가 커질수록 구조적으로 적자다 (10년차 성장 플레이어의 58%가 빚더미였다).
+                           // 인건비(5%)보다 낮게 둬서 압박은 남긴다 — 자원 무한 축적 방지 (§7)
+
+  /* ---- 양극단 페널티 : 지표 → 계수 ---- */
+  계수구간: [
+    { max: 20,  v: 0.6 },   // 위험
+    { max: 40,  v: 0.85 },  // 아쉬움
+    { max: 75,  v: 1.0 },   // 안전
+    { max: 90,  v: 0.9 },   // 슬슬 과열
+    { max: 999, v: 0.7 },   // 과열
+  ],
+
+  /* ---- 업무 4개 : E/I × S/N 직교 ---- */
+  업무: {
+    /* ei/sn 필드가 있었다 (영업 E·S / 마케팅 E·N / 개발 I·N / 외주 I·S).
+       배치판이 성격을 재던 흔적이라 지웠다 — 남겨두면 다시 쓰게 된다 */
+    /* ★ 재조정 2026-09-15 — 네 칸이 각각 다른 상황에서 최고가 되게 (스크래치 실측)
+         전: 어느 상황에서도 개발 아니면 외주가 답이었다 (이긴 칸 2/4)
+         후: 평판낮음→영업 · 분위기낮음→마케팅 · 실력낮음→개발 · 평판과열→외주 (4/4)
+
+       평판을 내리는 수단이 외주뿐이라는 문제도 여기서 같이 푼다:
+         개발의 평판+3 을 뺐다 — 네 칸 중 셋이 평판을 올려 배출구가 없었다.
+           (개발이 혼자 플러스 둘에 배수 1.0 이라 독주하던 원인이기도 하다.
+            "개발했는데 왜 평판이 오르나" 라 고증도 안 맞았다)
+         영업 배수 0.2 → 0.9 — 평판 75 이상에서 영업이 평판을 −6 깎는 규칙이
+           이미 있었는데 배수 0.2 라 아무도 못 썼다. 이제 실제 배출구가 된다
+         외주 평판 −2 → −4
+       → 올림 영업+8 · 마케팅+5  /  내림 외주−4 · 영업−6(과열) · 개발 중립 */
+    /* 2026-09-15 기획자 플레이 후 지시 — "영업이 너무 좋아 영업만 누르게 되고,
+       마케팅은 +요소만 있어 너무 좋다"
+         영업   배수 0.9→0.79 · 분위기 −3→+2  → 카드가 '돈− · 평판++ · 분위기+'
+                돈을 써서 평판과 분위기를 사는 칸이 된다. 과잉평판(−6)은 그대로 —
+                평판 배출구를 없애면 안 된다 (§3-8)
+         마케팅 평판 +5→−5 · 배수 0.8→1.0      → 카드가 '돈+ · 평판− · 분위기+'
+
+       ★ 크기는 실측으로 정했다. 부호는 지시대로지만 절대값을 잘못 잡으면 경제가 마른다:
+         배수 0.5 로 잡았더니 매출이 말라 18/26 (진단서① 도달 66% · 적중 59%).
+         돈기호는 배수 0.8 이상이 '+' 라 '돈−' 를 보이려면 0.79 가 상한이다.
+         영업 평판을 +5 로 줄이면(카드 '평판+') 흑자 62%→49% 로 게이트 아래다 → +8 유지.
+         마케팅 배수를 0.8 로 두면 엔딩 70%→63% · 적중 81.8%→77.6%.
+         마케팅 배수는 1.05 가 경계다 — 1.0 이면 외주에 밀려 제 자리가 없고(3/4),
+         1.1 이면 8상황 중 4승으로 과해진다. 1.05 에서 네 칸이 2승씩 고르다 */
+    영업:   { 배수:0.79, 평판:+8, 과잉평판:-6, 분위기:+2 },
+    마케팅: { 배수:1.05, 평판:-5, 분위기:+2 },
+    개발:   { 배수:1.0, 실력:+5, 분위기:-3 },
+    외주:   { 배수:1.2, 평판:-4, 실력:-3 },
+  },
+
+  /* ---- 인력 4개 : T/F · J/P 전담 ---- */
+  인력배수: 0.7,
+  인력: ['채용','해고','교육','휴가'],
+  채용비율: 0.25, 채용최소: 10, 채용단가: 300,
+  단계별채용비율: [0.25, 0.25, 0.25, 0.25],
+  // 해고 인원을 채용과 같게 맞췄다 (2026-09-15 지시). 전에는 0.10 / 최소 1 이라
+  // 한 번 뽑으면 열 번 잘라야 돌아왔다
+  // 1 → 11 → 21 → 31 → 41 → 51 → 64 → 80 → 100 → 125 → 156
+  // 직원 문턱(50/100/150)이 승급 조건이라 이 곡선이 그 위를 지나야 한다
+  해고비율: 0.25, 해고최소: 10, 해고단가: 300,
+  // 해고도 규모 비례. 정액 400 이면 직원 1000명 회사에서 100명을 내보내고 400만원이라
+  // 대기업에선 사실상 공짜 인원 감축이 된다. 채용 단가와 같게 두면
+  // "뽑을 때 300 쓰고 내보낼 때 300 받는" 대칭이 생겨 해고로 돈 버는 수가 없어진다
+  교육비: 500, 휴가비: 300,
+
+  /* ---- 회사 단계 ---- */
+  // 최대직원은 표시용 눈금일 뿐, 승급을 정하지 않는다 (아래 승급조건)
+  단계: [
+    { 이름:'스타트업', 최대직원:40,   사무실:150 },
+    { 이름:'중소기업', 최대직원:90,   사무실:180 },
+    { 이름:'중견기업', 최대직원:140,  사무실:220 },
+    { 이름:'대기업',   최대직원:1e9,  사무실:260 },
+  ],
+
+  /* ---- 승급 : 기간 + 직원 + 분기매출 셋 다 충족 ----
+     직원 수만으로 정하면 "직원 3명인데 중견기업" 이 나온다.
+     기간이 페이싱을, 직원이 규모를, 매출이 "지표를 관리했나" 를 본다.
+     대기업 = 엔딩. 그 뒤로는 자유 플레이
+
+     ★ 매출 문턱은 그 단계의 직원 문턱에서 겨우 닿는 수준이다.
+       낮게 잡으면(9억) 직원 106명에서 이미 20억이라 두 배를 넘겨버리고,
+       그러면 매출을 더 올릴 이유가 없어 채용 버튼을 누를 동기가 사라진다.
+       매출 = 직원수 × … 이므로, 문턱을 높이면 "매출을 늘리는 유일한 길이 채용" 이 된다
+
+     ★ 기간은 "그 단계에 들어온 뒤 N분기" 다 (절대 분기가 아니다).
+       절대값(16/32/48)으로 두면, 늦게 올라온 사람은 이미 32·48분기를 지났고
+       직원 수도 넘겨놔서 다음 단계 조건까지 동시에 만족한다.
+       → 한 분기 간격으로 연달아 승급하고 진단서가 같은 유형으로 두 장 나온다.
+         기획 §8 의 "변천사" 가 통째로 죽는다 (실제로 21년차 중소 → 22년차 중견이 나왔다) */
+  승급조건: [
+    null,
+    { 분기:16, 직원:50,  매출:70000 },   // 중소기업 · 스타트업 진입 후 4년
+    { 분기:16, 직원:100, 매출:150000 },  // 중견기업 · 중소 진입 후 4년
+    { 분기:16, 직원:150, 매출:220000 },  // 대기업   · 중견 진입 후 4년 (엔딩)
+  ],
+
+  /* ---- 이벤트 ---- */
+  트리거확률: 1.0,         // 인력관리 실행 시. 4칸 중 한 칸을 통째로 쓰는 결정이라 항상 물어본다
+  // 이벤트는 확률이 아니라 "단계 진입 후 N분기" 로 뜬다 (story.js 의 진입후 필드)
+  // 이벤트가 뜨면 계획 수정 기회도 같이 온다 (기획 §2)
+
+  /* ---- 측정 가중치 ---- */
+  영업과잉선: 75,          // 평판이 이 위면 영업이 평판을 깎는다 (안전구간 상단)
+  외주하한평판: 10,        // 평판이 이 아래면 외주 일감이 아예 안 들어온다.
+                           // 상태바 경고문("외주 업무가 들어오질 않습니다")과 같은 값이어야 한다
+  신입실력_경력: 55, 신입실력_신입: 25,   // 채용 시 팀 평균에 섞이는 값 (기획 §3)
+  가중_트리거: 1.0,
+  가중_이벤트: 1.0,
+  가중_배치판채용: 0.3,    // 수치로 고르게 되므로 약하게
+  판정최소표본: 3,
+
+  /* ---- 자연 회복 : 지표가 안전구간 쪽으로 끌려간다 ---- */
+  회복목표: 35,            // 안전구간(40~75) 바로 아래 = "아쉬움" 구간
+                           // 55(안전구간 한가운데) 로 잡으면 안 된다:
+                           // 평판 계수가 40~75 에서 전부 1.0 이라 안전구간을 공짜로 받게 되고,
+                           // 그러면 영업(배수 0.2, 평판+8) 이 돈만 버리는 열등 선택지가 된다
+  회복률하: 0.07,          // 목표보다 낮을 때 — 세게 당긴다 (죽음의 나선 방지)
+  회복률상: 0.04,          // 목표보다 높을 때 — 약하게 (안 그러면 과열 구간에 도달을 못 한다)
+
+  /* 과밀 — 단계 정원(최대직원)을 넘긴 만큼 매출 효율이 떨어진다.
+     없으면 매출도 지출도 직원 수에 정비례라 비율이 안 변하고,
+     한계 이익이 항상 +2,027만이라 무한 채용이 언제나 이득이 된다 (브레이크가 없다).
+     승급하면 정원이 올라 과밀이 리셋되므로 "더 뽑고 싶으면 먼저 승급하라" 가 된다.
+     대기업은 최대직원이 1e9 라 페널티가 없다 — 엔딩 이후는 자유 */
+  과밀여유: 2.0,           // 구간 정원(최대직원)의 몇 배까지 봐줄까.
+                           // 최대직원 40/90/140 은 기획자가 정한 구간표라 직접 고치지 않는다
+  과밀강도: 0.80,          // 실측: 여유 2.0 · 강도 0.8 에서 평균 직원 315→252명, 엔딩 63→54%
+  /* 아무리 넘쳐도 매출 계수가 여기까지만 떨어진다 — 게임 장치가 아니라 안전망이다.
+     0.4 이하로 낮추면 "작정하고 회사를 키우는 플레이어" 가 12년차에 전원 적자가 된다
+     (실측 흑자 87% → 0%).
+     대신 바닥에 붙는 구간(중견 455명 이상)에서는 페널티가 더 세지지 않아
+     자르는 게 이득이 아니게 된다. 거기까지 가려면 경고문을 한참 무시해야 한다 */
+  과밀하한: 0.50,
+};
+
+/* --------------------------------------------------------------------------
+   트리거 이벤트 — 인력관리 버튼을 누르면 발동
+   돈은 전부 + (버튼 눌러서 뜬 거라 손해보면 억울하다)
+   돈 크기는 직원수 비례 → 규모가 커져도 스케일이 맞는다
+   -------------------------------------------------------------------------- */
+/* 이벤트와 같은 { 화자, 말 } 표기다 — 화면에서 메신저 대화로 그려진다.
+   화자 '나' 는 오른쪽, 이름이 있으면 왼쪽 말풍선, 없으면 가운데 나레이션 */
+const 트리거상황 = {
+  채용: [{            말: '경력자와 신입의 이력서를 받았다.' },
+         { 화자:'경력', 말: '여유있어 보인다. 그가 들어오면 편해질 것이다.' },
+         { 화자:'신입', 말: '간절해 보인다. 그가 들어오면 열심히 일할 것이다.' }],
+  해고: [{            말: '면담을 잡았다.' },
+         { 화자:'직원', 말: '저... 아내가 임신을 했어요.' }],
+  교육: [{            말: '교육비 예산이 나왔다.' },
+         { 화자:'나',  말: '직원들을 다 보낼 수는 없을 것 같은데...' }],
+  휴가: [{ 화자:'나',  말: '다들 지쳐 보인다.' },
+         { 화자:'나',  말: '쉬게 해줘야겠는데...' }],
+};
+
+const 트리거 = {
+  채용: [
+    { 글:'경력을 뽑는다', 축:'T', 돈인당:100, 실력:+3 },
+    { 글:'신입을 뽑는다', 축:'F', 돈인당:100, 분위기:+3, 다음실력:+3 },
+  ],
+  해고: [
+    { 글:'지금 말해주는 게 낫다',   축:'T', 강도:2, 돈인당:200 },
+    { 글:'퇴직금을 두둑히 챙겨준다', 축:'T', 강도:1, 돈인당:100, 실력:+3 },
+    { 글:'아는 회사에 자리를 알아봐준다', 축:'F', 강도:1, 돈인당:100, 평판:+3 },
+    { 글:'일단 안고 간다',          축:'F', 강도:2, 돈인당:100, 분위기:+6, 해고취소:true },
+  ],
+  교육: [
+    { 글:'제일 잘하는 사람을 보낸다',   축:'T', 실력:+6 },
+    { 글:'제일 못 따라오는 사람을 보낸다', 축:'F', 분위기:+6, 다음실력:+3 },
+  ],
+  휴가: [
+    { 글:'날짜를 정해서 다 같이 쉰다', 축:'J', 분위기:+6 },
+    { 글:'각자 알아서 쓰게 한다',      축:'P', 분위기:+3, 평판:+3 },
+  ],
+};
+
+/* ========================= 순수 계산 ========================= */
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// 지표(0~100) → 계수. 양극단 페널티
+function 계수(v) {
+  for (const g of CFG.계수구간) if (v < g.max) return g.v;
+  return CFG.계수구간[CFG.계수구간.length - 1].v;
+}
+
+// 단계는 승급으로만 오른다. 직원 수로 되돌아 계산하지 않는다
+function 단계인덱스(S) { return S.단계 || 0; }
+function 단계(S) { return CFG.단계[단계인덱스(S)]; }
+
+/* 다음 단계 조건을 지금 만족하나. 못 채운 항목도 같이 돌려준다 (UI 가 그대로 보여준다) */
+function 승급판정(S) {
+  const n = 단계인덱스(S) + 1;
+  const c = CFG.승급조건[n];
+  if (!c) return { 가능:false, 끝:true };
+  // 기간은 그 단계에 들어온 뒤로 센다
+  const 진입 = (S.단계진입 && S.단계진입[단계인덱스(S)]) || 0;
+  const 항목 = [
+    { 이름:'기간', 현재:S.분기 - 진입, 필요:c.분기, 단위:'분기' },
+    { 이름:'직원', 현재:S.직원,        필요:c.직원, 단위:'명' },
+    { 이름:'매출', 현재:S.최근매출,    필요:c.매출, 단위:'만' },
+  ];
+  return { 가능: 항목.every(x => x.현재 >= x.필요), 항목, 다음: CFG.단계[n].이름 };
+}
+
+/* 과밀 정원 대비 몇 배나 넘쳤나. 0 이면 정상.
+   승급 문턱(50/100/150)은 전부 과밀 시작선(80/180/280) 아래라 정상 진행에는 안 걸린다 */
+function 과밀도(S) {
+  const 정원 = 단계(S).최대직원 * CFG.과밀여유;
+  return Math.max(0, S.직원 / 정원 - 1);
+}
+/* 매출에 곱하는 계수. 계수(평판)·계수(분위기)·계수(실력) 과 같은 자리에 하나 더 붙는다 */
+function 과밀비(S) {
+  return Math.max(CFG.과밀하한, 1 - 과밀도(S) * CFG.과밀강도);
+}
+
+function 매출(S, slot) {
+  const w = CFG.업무[slot];
+  const 배수 = w ? w.배수 : CFG.인력배수;
+  const 연차 = Math.floor(S.분기 / 4);
+  return Math.round(
+    S.직원 * CFG.기본매출 * Math.pow(1 + CFG.매출연상승, 연차) *
+    계수(S.실력) * 계수(S.평판) * 계수(S.분위기) * 과밀비(S) * 배수
+  );
+}
+
+function 지출(S) {
+  const st = 단계(S);
+  const 연차 = Math.floor(S.분기 / 4);
+  const 인건 = Math.max(0, S.직원 - 1) * CFG.인건비 * Math.pow(1 + CFG.인건비연상승, 연차);
+  const 사무실 = S.직원 * st.사무실;
+  const 운영 = CFG.고정운영비 * Math.pow(1 + CFG.고정운영비상승, 연차);
+  return Math.round(인건 + 사무실 + 운영);
+}
+
+function 채용인원(S) {
+  const 비율 = CFG.단계별채용비율[단계인덱스(S)];
+  return Math.max(CFG.채용최소, Math.round(S.직원 * 비율));
+}
+
+/* 슬롯을 고르는 데 드는 선불 비용. 업무와 해고는 0 (해고는 오히려 받는다) */
+function 슬롯비용(S, slot) {
+  if (slot === '채용') return 채용인원(S) * CFG.채용단가;
+  if (slot === '교육') return CFG.교육비;
+  if (slot === '휴가') return CFG.휴가비;
+  return 0;
+}
+
+/* 지금 이 슬롯을 고를 수 있나.
+   기획 §9: 조건부 선택지는 잠긴 채로 조건을 보여준다 → UI 는 이걸로 버튼을 잠근다 */
+function 선택가능(S, slot) {
+  // 인력관리는 이벤트4(신입 입사) 전까지 잠겨 있다. 혼자인 회사에 인력관리는 없다
+  if (CFG.인력.indexOf(slot) >= 0 && !S.해금['인력관리'])
+    return { 가능:false, 잠김:'인력관리', 사유:'신입이 들어와야 열립니다' };
+  // 기획 §3 상태별 문구 — "평판 0: 외주업무가 들어오질 않습니다".
+  // 경고만 띄우고 버튼은 눌리면 말과 행동이 어긋난다
+  if (slot === '외주' && S.평판 < CFG.외주하한평판)
+    return { 가능:false, 잠김:'외주', 사유:'평판이 낮아 일감이 없습니다' };
+  const 비용 = 슬롯비용(S, slot);
+  // 공짜인 칸(업무 4개·해고)은 빚이 있어도 항상 고를 수 있어야 한다.
+  // S.돈 >= 비용 만 보면 빚일 때 업무까지 잠겨 배치를 못 채우고 게임이 멈춘다.
+  // 기획 §0 "실패: 없음. 돈이 마이너스면 빚" 과 정면으로 충돌한다
+  return { 가능: 비용 <= 0 || S.돈 >= 비용, 비용 };
+}
+function 해고인원(S) { return Math.max(CFG.해고최소, Math.round(S.직원 * CFG.해고비율)); }
+
+/* ========================= 상태 ========================= */
+
+/* 씨앗을 밖에서 받는다 — 시뮬·치트시트가 재현 가능해야 한다 (§14 함정 4 "시드 버그").
+   안 주면 판마다 무작위다 (실제 플레이) */
+function newGame(씨앗) {
+  return {
+    씨앗: (씨앗 === undefined ? Math.floor(Math.random() * 4294967296) : 씨앗) >>> 0,
+    순서횟수: {},           // 선택지 순서용. 같은 자리가 몇 번째로 떴나
+    분기: 0,
+    돈: CFG.시작돈,
+    평판: CFG.시작평판,
+    분위기: CFG.시작분위기,
+    실력: CFG.시작실력,
+    직원: CFG.시작직원,
+
+    축: { E:0, I:0, S:0, N:0, T:0, F:0, J:0, P:0 },
+    다음실력: 0,            // 다음 분기에 반영될 실력 보너스
+    단계: 0,                // 승급으로만 오른다
+    단계진입: [0, 0, 0, 0],  // 각 단계에 들어온 분기. 이벤트가 여기서부터 센다
+    최근매출: 0,
+    해금: {},               // 이벤트로 열리는 것들 (인력관리)
+    첫채용함: false, 첫해고함: false,
+    본이벤트: [],           // 이미 본 이벤트 id (1회성 보장)
+    갈래: {},               // 연쇄용. { 이벤트id: '조용'|'활발'|true }
+    승급이력: [],           // { 분기, 단계, 진단 }
+    로그: [],
+    최저돈: CFG.시작돈,
+    과열분기: 0,            // 어떤 지표든 90 이상이었던 분기 수
+    위험분기: 0,            // 어떤 지표든 20 미만이었던 분기 수
+    무산: 0,                // 돈이 모자라 인력관리가 무산된 분기 수
+  };
+}
+
+/* 축은 한 글자('E')도 되고 두 글자('ES')도 된다.
+   두 축 선택지 = 무엇을 고르든 E/I 와 S/N 이 한 번에 들어온다 (이어하기 §1-8).
+   배치판에서 성격 측정을 뗀 뒤 진단서①의 표본을 채우는 수단이다 */
+function 축가산(S, k, w) {
+  if (!k) return;
+  for (const c of k) if (S.축[c] !== undefined) S.축[c] += w;
+}
+
+/* ========================= 선택지 순서 =========================
+   ★ 기획 §14 함정 16 — 고정 순서가 T 와 J 를 만들고 있었다.
+     story.js 첫 자리에 J 7 · T 6 이 몰려 있어서, 첫 칸을 누르는 습관만 있어도
+     반드시 xxTJ 가 나왔다 (실측: 첫번째 편향 플레이어 T 98% · J 100%).
+
+   왜 문구 순서로는 못 고치나
+     이벤트는 한 판에 한 번씩만 뜨니 순서를 엇갈리면 상쇄된다.
+     트리거(채용·해고·교육·휴가)는 매번 다시 뜨므로 첫 선택지가 무한히 쌓인다.
+     어떤 고정 순서를 써도 그 글자가 이긴다 → 판마다 섞는 수밖에 없다.
+
+   ★ 화면과 로직이 같은 순서를 봐야 한다
+     runQuarter 가 동기라 UI 는 "답을 미리 받아두고 replay 하는 choose" 를 쓴다.
+     트리거묻기(UI)는 runQuarter 전에, 인력처리(로직)는 S.분기++ 뒤에 돈다.
+     그래서 S.분기 로 섞으면 양쪽이 다른 순서를 보고 조용히 어긋난다.
+     대신 "그 자리가 몇 번째로 떴나"(순서횟수) 를 쓴다 —
+     UI 는 읽기만 하고, 로직이 고른 직후에만 올린다.
+   ============================================================== */
+function 섞기(arr, h) {
+  const a = arr.slice();
+  h = h >>> 0;
+  for (let i = a.length - 1; i > 0; i--) {
+    h = (Math.imul(h ^ (h >>> 15), 2246822507) + 0x9e3779b9) >>> 0;
+    const j = h % (i + 1);
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function 선택지순서(S, 키, opts) {
+  let h = S.씨앗 ^ 0x85ebca6b;
+  for (let i = 0; i < 키.length; i++) h = Math.imul(h ^ 키.charCodeAt(i), 16777619) >>> 0;
+  h = Math.imul(h ^ ((S.순서횟수[키] || 0) + 1), 2654435761) >>> 0;
+  return 섞기(opts, h);
+}
+function 선택지소비(S, 키) { S.순서횟수[키] = (S.순서횟수[키] || 0) + 1; }
+
+/* 자연 회복 — 가만히 두면 모든 게 평범해진다.
+   왜 필요한가: 매출 계수가 계수(실력)×계수(평판)×계수(분위기) 3중곱이라
+   한 지표가 0 에 박히면 매출이 급락하는데, 그걸 되돌릴 수단이 영업(배수 0.2)뿐이라
+   빠져나올 길이 없다 (죽음의 나선). 100 에 박제되는 것도 같이 막는다. */
+function 자연회복(S) {
+  for (const k of ['평판','분위기','실력']) {
+    const 거리 = CFG.회복목표 - S[k];
+    const 율 = 거리 > 0 ? CFG.회복률하 : CFG.회복률상;
+    S[k] = clamp(Math.round(S[k] + 거리 * 율), 0, 100);
+  }
+}
+
+function 지표적용(S, e) {
+  if (e.평판)   S.평판   = clamp(S.평판   + e.평판,   0, 100);
+  if (e.분위기) S.분위기 = clamp(S.분위기 + e.분위기, 0, 100);
+  if (e.실력)   S.실력   = clamp(S.실력   + e.실력,   0, 100);
+  if (e.다음실력) S.다음실력 += e.다음실력;
+}
+
+/* ========================= 한 분기 진행 =========================
+   slot   : '영업'|'마케팅'|'개발'|'외주'|'채용'|'해고'|'교육'|'휴가'
+   choose : (슬롯, 선택지배열) => 인덱스   — 트리거 이벤트 응답자
+   ============================================================== */
+function runQuarter(S, slot, choose, rnd) {
+  rnd = rnd || Math.random;
+  S.분기++;
+
+  // 1) 지난 분기에 예약된 실력 보너스
+  if (S.다음실력) { S.실력 = clamp(S.실력 + S.다음실력, 0, 100); S.다음실력 = 0; }
+
+  // 2) 매출 · 지출
+  const rev = 매출(S, slot);
+  S.최근매출 = rev;              // 승급 조건이 본다
+  const cost = 지출(S);
+  S.돈 += rev - cost;
+
+  // 3) 슬롯 효과
+  const w = CFG.업무[slot];
+  if (w) {
+    // 영업은 평판이 이미 높으면 역효과 — 다 아는 회사를 계속 밀어붙이면 질린다.
+    // 평판을 낮추는 수단이 외주(I·S)뿐이면 E 성향이 과열을 풀 방법이 없다
+    /* +8 / −6 이 여기 박혀 있었다. CFG.업무.영업.평판 은 화면·치트시트만 읽어서,
+       설정을 고치면 표시는 바뀌고 게임은 안 바뀌는 조용한 거짓말이 됐다 (2026-09-15 발견) */
+    if (slot === '영업')
+      지표적용(S, { ...w, 평판: S.평판 >= CFG.영업과잉선 ? w.과잉평판 : w.평판 });
+    else 지표적용(S, w);
+    /* ★ 배치판은 성격을 재지 않는다 (2026-09-13 결정 · 2026-09-15 구현)
+       여기 축가산(w.ei) · 축가산(w.sn) 이 있었다. 배치판은 매출 배수가 0.2~1.3 이고
+       그 수치가 화면에 그대로 보인다 → 누구나 외주·개발을 누른다 → 전원 I.
+       실제 사람 4명이 전원 INTJ 로 나온 원인이다 (기획 §14 함정 15).
+       계획 수정을 없앤 것(함정 12)과 같은 처방이다:
+       게임 조작으로 성격을 재면 게임이 이긴다.
+       → 배치판 = 전략 100% · 이벤트 = 성격 100% */
+  } else {
+    인력처리(S, slot, choose, rnd);
+  }
+
+  // 4) 자연 회복 — 슬롯 효과가 다 반영된 뒤에 끌어당긴다
+  자연회복(S);
+
+  // 5) 관측
+  if (S.돈 < S.최저돈) S.최저돈 = S.돈;
+  const mx = Math.max(S.평판, S.분위기, S.실력);
+  const mn = Math.min(S.평판, S.분위기, S.실력);
+  if (mx >= 90) S.과열분기++;
+  if (mn < 20)  S.위험분기++;
+
+  return { 매출: rev, 지출: cost };
+}
+
+function 인력처리(S, slot, choose, rnd) {
+  /* 돈이 모자라면 무산된다.
+     UI 는 §9 대로 버튼을 잠그지만, 기획 §2 는 연초에 4칸을 미리 채우는 구조라
+     연초엔 낼 수 있던 계획이 실행 분기엔 못 낼 수 있다. 그때 여기로 온다.
+     무산된 분기는 트리거 이벤트도 안 뜨므로 축도 재지 않는다 — 고른 적이 없는 셈이다 */
+  if (!선택가능(S, slot).가능) {
+    S.무산++;
+    S.로그.push({ 분기: S.분기, 무산: slot, 필요: 슬롯비용(S, slot), 보유: S.돈 });
+    return;
+  }
+
+  // 트리거 이벤트 발동 여부
+  let 발동 = rnd() < CFG.트리거확률;
+  if (slot === '채용' && !S.첫채용함) { 발동 = true; S.첫채용함 = true; }
+  if (slot === '해고' && !S.첫해고함) { 발동 = true; S.첫해고함 = true; }
+
+  let 해고취소 = false;
+
+  if (발동) {
+    const opts = 선택지순서(S, '트리거:' + slot, 트리거[slot]);
+    const i = clamp(choose(slot, opts), 0, opts.length - 1);
+    선택지소비(S, '트리거:' + slot);
+    const o = opts[i];
+    축가산(S, o.축, CFG.가중_트리거 * (o.강도 || 1));
+    지표적용(S, o);
+    if (o.돈인당) S.돈 += o.돈인당 * S.직원;
+    if (o.해고취소) 해고취소 = true;
+  }
+
+  if (slot === '채용') {
+    const n = 채용인원(S);
+    S.돈 -= n * CFG.채용단가;
+    S.직원 += n;
+    // 배치판 자체의 실력/인성 선택 — 가중치 낮음
+    const 실력위주 = choose('채용방침', [{축:'T'},{축:'F'}]) === 0;
+    축가산(S, 실력위주 ? 'T' : 'F', CFG.가중_배치판채용);
+    /* 기획 §3 — 실력은 "팀 평균". 신입이 들어오면 평균이 내려간다.
+       채용이 실력을 올리게 두면 회사를 키울수록 실력이 과열로 밀려 올라간다
+       (실측: 48분기 중 실력 과열 20% · 분위기 32%) */
+    const 신입실력 = 실력위주 ? CFG.신입실력_경력 : CFG.신입실력_신입;
+    S.실력 = clamp(Math.round((S.실력 * (S.직원 - n) + 신입실력 * n) / S.직원), 0, 100);
+    지표적용(S, 실력위주 ? { 분위기:-3 } : { 분위기:+3 });
+  } else if (slot === '해고') {
+    if (!해고취소) {
+      const n = Math.min(해고인원(S), Math.max(0, S.직원 - 1));
+      S.직원 -= n;
+      S.돈 += n * CFG.해고단가;
+      /* 2026-09-15 지시 — "해고의 메리트를 확 올릴게. 직원− 평판+ 돈+"
+         분위기 −5 였다. 아무도 안 눌러서 과밀 페널티를 풀 수단이 사실상 없었다.
+         ※ 기획 §3-7 은 "채용·해고에 평판 영향 없음" 이었다 (평판 낮추려 사람 자르기).
+           이번엔 반대 방향(평판 올리려 자르기)이 생길 수 있어 실측으로 확인했다 */
+      지표적용(S, { 평판:+5 });
+    }
+  } else if (slot === '교육') {
+    S.돈 -= CFG.교육비;
+    지표적용(S, { 실력:+6 });
+  } else if (slot === '휴가') {
+    S.돈 -= CFG.휴가비;
+    지표적용(S, { 분위기:+8 });
+  }
+}
+
+/* ========================= 이벤트 =========================
+   story.js 가 원본. 종류는 3가지 (규칙 §1)
+     이야기 — 순서 고정. 조건이 맞으면 사건보다 먼저 나온다
+     사건   — 해금된 것 중 무작위
+     위기   — 특정 상태에서만 (아직 story.js 에 없음)
+   이벤트가 뜨면 계획 수정 기회도 같이 온다 (기획 §2)
+   ========================================================== */
+const 스토리 = (typeof window !== 'undefined' && window.__story) || [];
+
+function 단계열림(S, 이름) {
+  const i = CFG.단계.findIndex(st => st.이름 === 이름);
+  return i < 0 || 단계인덱스(S) >= i;
+}
+
+/* 선택지를 지금 고를 수 있나. 못 고르면 잠긴 채 조건이 보인다 (규칙 §4-2) */
+function 선택지가능(S, 선택) {
+  if (!선택.조건) return { 가능: true };
+  for (const k in 선택.조건) if ((S[k] || 0) < 선택.조건[k]) {
+    return { 가능: false, 지표: k, 필요: 선택.조건[k] };
+  }
+  return { 가능: true };
+}
+
+function 등장가능(S, e) {
+  if (S.본이벤트.indexOf(e.id) >= 0) return false;      // 1회성
+  if (e.승급 && !승급판정(S).가능) return false;         // 졸업 이벤트는 조건을 채워야
+  if (!단계열림(S, e.단계)) return false;
+  /* 이벤트는 "그 단계에 들어온 뒤 N분기" 에 뜬다.
+     절대 분기로 박으면 늦게 승급한 사람은 다음 단계 이벤트가 한꺼번에 풀려 몰려 뜬다.
+     금액 기준으로 하면 플레이 스타일에 따라 1.4~2.0배 차이가 나서
+     이벤트 진행 속도가 성격에 따라 달라진다 (MBTI 측정 게임에서 치명적) */
+  if (e.진입후 !== undefined) {
+    const 진입 = (S.단계진입 && S.단계진입[단계인덱스(S)]) || 0;
+    if (S.분기 - 진입 < e.진입후) return false;
+  }
+  if (e.등장조건) for (const k in e.등장조건) if ((S[k] || 0) < e.등장조건[k]) return false;
+  if (e.연쇄 && !S.갈래[e.연쇄.출처]) return false;      // 앞 이야기를 아직 안 봤다
+  return true;
+}
+
+/* null | 이벤트.
+   시점이 되면 반드시 뜬다 — 확률을 타지 않는다.
+     ① 승급 이벤트(5의 배수): 승급 조건(시기·직원·매출)을 채웠으면 그것부터
+     ② 나머지: 진입 후 N분기가 지난 것 중 id 가 가장 빠른 것
+   확률로 뽑으면 단계 앞쪽에 몰려 터지고 뒤가 텅 빈다
+   (실측: 이벤트 사이 최대 공백 중앙값 12분기) */
+function 이벤트뽑기(S, rnd) {
+  const 가능 = 스토리.filter(e => 등장가능(S, e));
+  const 승급 = 가능.find(e => e.승급);
+  if (승급 && 승급판정(S).가능) return 승급;
+  const 나머지 = 가능.filter(e => !e.승급).sort((a, b) => a.id - b.id);
+  return 나머지.length ? 나머지[0] : null;
+}
+
+/* choose(이벤트, 열린선택지) => 인덱스 */
+function 이벤트적용(S, e, choose) {
+  const 키 = '이벤트:' + e.id;
+  const 열린 = 선택지순서(S, 키, e.선택).filter(c => 선택지가능(S, c).가능);
+  const 고른 = 열린[clamp(choose(e, 열린), 0, 열린.length - 1)];
+  선택지소비(S, 키);
+
+  축가산(S, 고른.축, CFG.가중_이벤트 * (고른.강도 || 1));
+  지표적용(S, 고른);
+  if (고른.돈인당) S.돈 += 고른.돈인당 * S.직원;
+  if (e.직원) S.직원 += e.직원;
+
+  S.본이벤트.push(e.id);
+  if (e.해금) S.해금[e.해금] = true;
+  if (고른.갈래) S.갈래[e.id] = 고른.갈래;
+  else if (e.종류 === '이야기') S.갈래[e.id] = true;   // 연쇄 판정용
+  S.로그.push({ 분기: S.분기, 이벤트: e.id, 고름: 고른.글 });
+  return 고른;
+}
+
+/* ========================= 승급 ========================= */
+function 승급확인(S, prevIdx) {
+  if (승급판정(S).가능) {
+    S.단계 = 단계인덱스(S) + 1;
+    if (S.단계진입) S.단계진입[S.단계] = S.분기;
+  }
+  const now = 단계인덱스(S);
+  if (now <= prevIdx) return null;
+  // 한 분기에 두 단계를 오를 수 있다. 현재 단계만 기록하면 중간 진단서가 조용히 사라진다
+  for (let i = prevIdx + 1; i <= now; i++) {
+    const d = diagnose(S);
+    S.승급이력.push({ 분기: S.분기, 단계: CFG.단계[i].이름, 진단: d.유형, 상세: d });
+  }
+  return CFG.단계[now];
+}
+
+/* ========================= MBTI 판정 ========================= */
+function diagnose(S) {
+  const ax = S.축;
+  const one = (a, b) => {
+    const t = ax[a] + ax[b];
+    if (t < CFG.판정최소표본) return { 글자: '?', 비율: 0.5, 표본: t, 확신: 0 };
+    const r = ax[a] / t;
+    return {
+      글자: r === 0.5 ? (a) : (r > 0.5 ? a : b),
+      비율: r,
+      표본: t,
+      확신: Math.abs(r - 0.5) * 2,
+    };
+  };
+  const ei = one('E','I'), sn = one('S','N'), tf = one('T','F'), jp = one('J','P');
+  return {
+    유형: ei.글자 + sn.글자 + tf.글자 + jp.글자,
+    ei, sn, tf, jp,
+    최소표본: Math.min(ei.표본, sn.표본, tf.표본, jp.표본),
+    평균확신: (ei.확신 + sn.확신 + tf.확신 + jp.확신) / 4,
+  };
+}
+
+/* ========================= 노출 =========================
+   vm 컨텍스트에서 const 는 ctx 속성이 되지 않는다.
+   반드시 window 에 담아서 꺼낼 수 있게 한다. (앞 게임에서 밟은 함정)
+   ======================================================= */
+window.__game = {
+  CFG, 트리거, 트리거상황,
+  newGame, runQuarter, diagnose,
+  계수, 단계, 단계인덱스, 매출, 지출, 자연회복, 승급판정,
+  채용인원, 해고인원, 슬롯비용, 선택가능,
+  이벤트뽑기, 이벤트적용, 승급확인, 과밀도, 과밀비, 선택지순서,
+  스토리, 단계열림, 선택지가능, 등장가능,
+};
+</script>
+
+<script>
+"use strict";
+/* ==========================================================================
+   화면 — 로직은 위 <script> 가 전부 갖고 있다. 여기서는 그리기만 한다.
+   ※ sim.js 는 위 블록만 vm 으로 돌린다. 이 블록에 로직을 두면 검증 밖으로 샌다.
+   ========================================================================== */
+const G = window.__game;
+/* 로직 <script> 가 최상위에 const CFG 를 이미 선언했다.
+   여기서 같은 이름을 또 쓰면 "Identifier 'CFG' has already been declared" 로 페이지가 통째로 죽는다 */
+const 설정 = G.CFG;
+const 대사 = (typeof window !== 'undefined' && window.__대사) || {};
+
+/* 말풍선 — 배치판 버튼을 누르면 사무실 위에 잠깐 뜬다.
+   draw() 가 화면을 통째로 다시 그리므로 DOM 에 직접 붙이지 않고 상태로 들고 있는다 */
+let 말풍선타이머 = null;
+function 말풍선띄우기(slot) {
+  if (!대사[slot]) return;
+  V.말풍선 = slot;
+  clearTimeout(말풍선타이머);
+  말풍선타이머 = setTimeout(() => {
+    V.말풍선 = null;
+    if (V.화면 === 'play' && V.탭 === '회사') draw();
+  }, 2300);
+}
+
+const KEY  = 'boss_v1';        // 진행 상태
+const HKEY = 'boss_history';   // 진단서 변천사 — 초기화해도 남는다 (기획 §8)
+const OKEY = 'boss_opt';       // 설정. 변천사와 같은 정책 — 진행을 지워도 남는다.
+                               // KEY 에 넣으면 [처음부터 다시하기] 에 설정까지 딸려 지워진다
+const SCHEMA = 1;
+
+const $ = id => document.getElementById(id);
+const el = (t, c, x) => { const e = document.createElement(t);
+  if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+
+/* 기획 §4 표기: 3,000 → "3,000만"  12,500 → "1억 2,500만"  1,200,000 → "120억" */
+function 금액(v) {
+  const m = Math.abs(Math.round(v)), s = v < 0 ? '-' : '';
+  if (m < 10000) return s + m.toLocaleString() + '만';
+  const 억 = Math.floor(m / 10000), 만 = m % 10000;
+  return s + 억.toLocaleString() + '억' + (만 ? ' ' + 만.toLocaleString() + '만' : '');
+}
+/* 축 표본은 가중치(1.0 · 0.3 …) 합이라 부동소수점 찌꺼기가 붙는다. 18.4 로 보여준다 */
+const 표본표기 = v => (Math.round(v * 10) / 10).toString();
+const 색 = v => v < 20 ? 'var(--risk)' : v < 40 ? 'var(--meh)'
+              : v < 75 ? 'var(--safe)' : v < 90 ? 'var(--hot)' : 'var(--risk)';
+
+/* 기획 §3 상태별 문구 — 양극단일 때만 뜬다 */
+const 경고문 = [
+  [s => s.평판 < 설정.외주하한평판, '외주 업무가 들어오질 않습니다'],
+  [s => s.평판 >= 90,   '업무가 너무 많습니다. 직원들의 컨디션이 안 좋아집니다'],
+  [s => s.분위기 < 10,  '직원들이 서로 싸우고 있습니다'],
+  [s => s.분위기 >= 90, '직원들의 사이가 너무 좋아 놀기만 합니다'],
+  [s => s.실력 < 10,    '직원들이 실적을 내지 못하고 있습니다'],
+  [s => s.실력 >= 90,   '직원들이 일만 해서 컨디션이 안 좋아졌습니다'],
+  [s => G.과밀도(s) > 0.2, '회사 규모에 비해 직원수가 너무 많아 매출에 영향이 생깁니다'],
+];
+
+/* ========================= 저장 ========================= */
+/* localStorage 는 아이폰 프라이빗 브라우징에서 있는 척하다 쓰기에서 던진다.
+   감싸지 않으면 [새로하기] 가 그 줄에서 멈춰 게임이 시작되지 않는다 ('직장인' 에서 밟음) */
+let 저장막힘 = false;
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify({ v: SCHEMA, S, 배치: V.배치, 진행: V.진행 })); }
+  catch (e) { 저장막힘 = true; }
+}
+function load() {
+  try {
+    const o = JSON.parse(localStorage.getItem(KEY) || 'null');
+    return (o && o.v === SCHEMA) ? o : null;
+  } catch (e) { return null; }
+}
+function 저장삭제() { try { localStorage.removeItem(KEY); } catch (e) {} }
+function 변천사() {
+  try { return JSON.parse(localStorage.getItem(HKEY) || '[]'); } catch (e) { return []; }
+}
+function 변천사삭제() { try { localStorage.removeItem(HKEY); } catch (e) {} }
+
+/* ── 설정 ── */
+let 옵션 = (() => {
+  try { return JSON.parse(localStorage.getItem(OKEY) || '{}') || {}; } catch (e) { return {}; }
+})();
+function 옵션저장() { try { localStorage.setItem(OKEY, JSON.stringify(옵션)); } catch (e) {} }
+/* 브라우저에 "움직임 줄이기" 를 켜둔 사람에게는 토글과 무관하게 즉시 표시한다.
+   CSS 쪽 @media (prefers-reduced-motion) 과 짝이다 — 한쪽만 있으면 어긋난다 */
+function 모션싫음() {
+  try { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch (e) { return false; }
+}
+function 톡애니켜짐() { return 옵션.톡애니 !== false && !모션싫음(); }
+function 변천사추가(rec) {
+  try { const h = 변천사(); h.push(rec); localStorage.setItem(HKEY, JSON.stringify(h)); }
+  catch (e) { 저장막힘 = true; }
+}
+
+/* ========================= 화면 상태 ========================= */
+let S = null;
+const V = {
+  화면: 'title',       // title | intro | play
+  탭: '회사',          // 회사 | 보고서 | 설정
+  배치: [null, null, null, null],
+  진행: 0,             // 올해 몇 칸까지 실행했나
+  돌아가는중: false,
+};
+
+/* ========================= 상태바 ========================= */
+function drawBar() {
+  const b = $('bar');
+  b.innerHTML = '';
+  if (!S) return;
+  const 연차 = Math.floor(S.분기 / 4) + 1;
+  const r1 = el('div', 'row1');
+  r1.appendChild(el('span', 'yr', 연차 + '년차'));
+  r1.appendChild(el('span', 'stg', G.단계(S).이름));
+  b.appendChild(r1);
+
+  const mo = el('div', 'money');
+  mo.appendChild(el('span', null, '돈'));
+  const mv = el('span', 'v' + (S.돈 < 0 ? ' minus' : ''), 금액(S.돈) + (S.돈 < 0 ? ' (빚)' : ''));
+  mo.appendChild(mv);
+  b.appendChild(mo);
+
+  for (const [nm, k] of [['평판','평판'],['팀분위기','분위기'],['실력','실력']]) {
+    const g = el('div', 'g');
+    g.appendChild(el('span', 'nm', nm));
+    const tr = el('span', 'track'), fi = el('i', 'fill');
+    fi.style.width = S[k] + '%'; fi.style.background = 색(S[k]);
+    tr.appendChild(fi); g.appendChild(tr);
+    g.appendChild(el('span', 'val', String(S[k])));
+    b.appendChild(g);
+  }
+  const g2 = el('div', 'g');
+  g2.appendChild(el('span', 'nm', '직원'));
+  g2.appendChild(el('span', null, S.직원 + '명'));
+  b.appendChild(g2);
+
+  // 다음 승급까지 뭐가 남았나 — 기획 §9 "조건을 보여준다"
+  const j = G.승급판정(S);
+  if (j.항목) {
+    const g = el('div', 'goal');
+    g.appendChild(el('span', 'nm', j.다음));
+    // 필요치만 띄우면 얼마나 모자란지 모른다. 현재값을 같이 보여준다
+    const 모자란것 = [];
+    for (const x of j.항목) {
+      const 찼나 = x.현재 >= x.필요;
+      const f = v => x.이름 === '매출' ? 금액(v)
+                   : v + (x.이름 === '기간' ? '분기' : '명');
+      g.appendChild(el('span', 'need' + (찼나 ? ' ok' : ''),
+                       x.이름 + ' ' + (찼나 ? f(x.필요) + ' ✓' : f(x.현재) + ' / ' + f(x.필요))));
+      if (!찼나) 모자란것.push({ 이름: x.이름, 남은: x.필요 - x.현재, f });
+    }
+    b.appendChild(g);
+
+    /* 기간을 다 채웠는데 못 올라가면 뭐가 모자란지 콕 집어준다.
+       "직원 150명" 만 회색으로 띄워놨더니 22년차까지 모르고 간 플레이가 있었다 */
+    const 기간찼나 = j.항목[0].현재 >= j.항목[0].필요;
+    if (기간찼나 && 모자란것.length) {
+      const t = 모자란것.map(m =>
+        m.이름 === '매출' ? '분기 매출 ' + m.f(m.남은) + ' 더'
+                          : '직원 ' + m.남은 + '명 더').join(' · ');
+      const h = el('div', 'hint', j.다음 + '까지 ' + t + ' 필요합니다');
+      b.appendChild(h);
+    }
+  }
+
+  const w = 경고문.filter(([f]) => f(S)).map(([, t]) => t);
+  if (w.length) { const wr = el('div', null, w.join('\n')); wr.id = 'warnrow'; b.appendChild(wr); }
+}
+
+/* ========================= 배치판 ========================= */
+const 업무들 = ['영업','개발','마케팅','외주'];
+
+/* 지표 변화는 숫자 대신 크기로 — 규칙 §4-6 "숫자는 쓰지 말고 크기만 표시한다".
+   +8 / +3 이 나란히 있으면 읽는 데 품이 들고, 정확한 값은 어차피 판단에 안 쓰인다.
+   사람 수와 돈은 "지금 낼 수 있나" 를 가르는 실제 판단 재료라 숫자로 남긴다 */
+const 기호 = v => v >= 6 ? '++' : v > 0 ? '+' : v <= -6 ? '−−' : '−';
+/* 매출 배수 → 기호. 손익분기 배수가 약 0.58 이라 그 아래는 적자다 */
+const 돈기호 = 배수 => 배수 >= 1.2 ? '++' : 배수 >= 0.8 ? '+' : 배수 >= 0.45 ? '−' : '−−';
+
+function 효과글(slot) {
+  const w = 설정.업무[slot];
+  const p = [];
+  if (w) {
+    p.push('돈' + 돈기호(w.배수));
+    for (const k of ['평판','실력','분위기']) {
+      /* ★ 영업은 평판이 높으면 부호가 뒤집힌다. 늘 '평판+' 로 띄우면
+         "평판을 낮추는 버튼은 외주뿐" 이라고 읽히고, 실제로 그렇게 플레이했다
+         (이어하기 §1-1 관찰 1). 지금 상태의 실제 값을 보여준다 */
+      const v = (slot === '영업' && k === '평판' && S.평판 >= 설정.영업과잉선)
+                ? w.과잉평판 : w[k];
+      if (v) p.push(k + 기호(v));
+    }
+  } else {
+    const c = G.슬롯비용(S, slot);
+    if (slot === '채용') p.push('직원 +' + G.채용인원(S) + '명', '실력−');
+    if (slot === '해고') p.push('직원 −' + G.해고인원(S) + '명', '평판+');
+    if (slot === '교육') p.push('실력++');
+    if (slot === '휴가') p.push('분위기++');
+    p.push(c ? '돈 −' + 금액(c) : '돈 +' + 금액(G.해고인원(S) * 설정.해고단가));
+  }
+  return p.join(' · ');
+}
+
+/* ========================= 사무실 그림 =========================
+   그림 파일을 쓰지 않는다 — 인라인 SVG 로 그린다.
+   기획 §12 "단일 HTML · 외부 의존 0" 을 지키면서 단계별 사무실을 채운다.
+   단계가 오르면 건물이 커지고, 직원이 늘면 불 켜진 창이 늘어난다
+   ============================================================== */
+const 건물틀 = [
+  { w: 62,  층: 3, 열: 2, 이름: '작은 사무실' },   // 스타트업
+  { w: 88,  층: 4, 열: 3, 이름: '사옥' },          // 중소기업
+  { w: 112, 층: 6, 열: 4, 이름: '중견 사옥' },     // 중견기업
+  { w: 136, 층: 8, 열: 5, 이름: '본사' },          // 대기업
+];
+
+/* ── 사무실 옆 풍경 ──
+   건물과 같은 viewBox 높이(170) · 같은 바닥(156)을 쓴다. 그래야 땅선이 한 줄로 이어져
+   건물과 딴 그림처럼 안 보인다.
+   오른쪽 끝(x=560)이 건물에 붙는 쪽이라 그쪽부터 채운다. 좁은 화면에서 잘리는 건 왼쪽이므로
+   덜 중요한 것(간판·주차)을 왼쪽에, 사람을 오른쪽에 둔다.
+   아이폰(375px)에서 보이는 범위는 대략 x 197~560 이다 */
+const 풍경W = 560, 풍경바닥 = 156;
+const 풍경틀 = [
+  // 스타트업 — 땅만. 1인 회사의 휑함을 그대로 둔다
+  { 사람: [], 나무: [], 벤치: [], 차: [], 간판: null },
+  { 사람: [512, 532], 나무: [[470, 13]], 벤치: [], 차: [], 간판: null },
+  { 사람: [440, 452, 496, 512, 534], 나무: [[378, 14], [470, 11]],
+    벤치: [416], 차: [300], 간판: null },
+  { 사람: [300, 348, 396, 408, 424, 506, 520, 536], 나무: [[330, 15], [452, 12]],
+    벤치: [372, 488], 차: [196, 262], 간판: 120 },
+];
+const 옷색 = ['#8c7ae6', '#6c5ce7', '#a29bfe', '#7f8ff4', '#9b8cf0'];
+
+function 풍경SVG(단계i) {
+  const t = 풍경틀[Math.max(0, Math.min(3, 단계i))];
+  const B = 풍경바닥, p = [];
+  p.push(`<svg class="scene" viewBox="0 0 ${풍경W} 170" aria-hidden="true">`);
+  p.push(`<rect class="ground" x="0" y="${B}" width="${풍경W}" height="2"/>`);
+
+  if (t.간판 !== null) {                                   // 입간판 — 부지 입구
+    const x = t.간판;
+    p.push(`<rect class="post" x="${x - 2}" y="${B - 28}" width="4" height="28"/>`);
+    p.push(`<rect class="board" x="${x - 17}" y="${B - 46}" width="34" height="18" rx="3"/>`);
+    p.push(`<rect class="boardline" x="${x - 11}" y="${B - 41}" width="22" height="2.5" rx="1.25"/>`);
+    p.push(`<rect class="boardline" x="${x - 11}" y="${B - 36}" width="14" height="2.5" rx="1.25"/>`);
+  }
+  for (const x of t.차) {                                  // 주차장
+    p.push(`<path class="car" d="M${x - 15} ${B - 13} L${x - 10} ${B - 18} L${x + 10} ${B - 18} L${x + 15} ${B - 13} Z"/>`);
+    p.push(`<rect class="car" x="${x - 26}" y="${B - 13}" width="52" height="8" rx="3.5"/>`);
+    p.push(`<circle class="wheel" cx="${x - 14}" cy="${B - 3.5}" r="3.5"/>`);
+    p.push(`<circle class="wheel" cx="${x + 14}" cy="${B - 3.5}" r="3.5"/>`);
+  }
+  for (const [x, r] of t.나무) {                            // 조경수
+    p.push(`<rect class="trunk" x="${x - 2}" y="${B - 11}" width="4" height="11"/>`);
+    p.push(`<circle class="tree" cx="${x}" cy="${B - r - 7}" r="${r}"/>`);
+  }
+  for (const x of t.벤치) {
+    p.push(`<rect class="bench" x="${x - 10}" y="${B - 16}" width="2.5" height="16"/>`);
+    p.push(`<rect class="bench" x="${x + 7.5}" y="${B - 16}" width="2.5" height="16"/>`);
+    p.push(`<rect class="bench" x="${x - 10}" y="${B - 16}" width="20" height="2.5" rx="1.25"/>`);
+    p.push(`<rect class="bench" x="${x - 15}" y="${B - 8}" width="30" height="3.5" rx="1.75"/>`);
+  }
+  t.사람.forEach((x, i) => {                                // 사람이 제일 앞에 선다
+    const c = 옷색[i % 옷색.length];
+    p.push(`<g class="person" style="--d:${(2.6 + (i % 4) * 0.5).toFixed(1)}s;--w:${((i % 5) * 0.35).toFixed(2)}s">`
+         + `<path fill="${c}" d="M${x - 5} ${B} L${x - 3.4} ${B - 13} L${x + 3.4} ${B - 13} L${x + 5} ${B} Z"/>`
+         + `<circle fill="${c}" cx="${x}" cy="${B - 17.2}" r="4.6"/></g>`);
+  });
+  p.push('</svg>');
+  return p.join('');
+}
+
+function 사무실SVG(단계i, 직원) {
+  const b = 건물틀[Math.max(0, Math.min(3, 단계i))];
+  /* 캔버스는 모든 단계가 같다 — 그래야 같은 배율로 그려져 큰 회사가 실제로 커 보인다.
+     8층(138)이 들어가도록 높이를 잡는다. 128 이면 대기업 건물이 위로 잘렸다 */
+  const W = 200, H = 170, 바닥 = H - 14;
+  const 창w = 9, 창h = 8, 간격x = (b.w - b.열 * 창w) / (b.열 + 1);
+  const 건물h = b.층 * 16 + 10;
+  const x0 = Math.round((W - b.w) / 2), y0 = 바닥 - 건물h;
+  const 총창 = b.층 * b.열;
+  /* 불 켜진 창 = 그 단계의 직원 문턱까지 얼마나 왔나.
+     전역 기준으로 하면 초반에 한 칸만 켜져 썰렁하다.
+     이렇게 하면 그림 자체가 승급 진행도를 보여준다 */
+  const 다음 = (설정.승급조건[단계i + 1] || {}).직원 || 250;
+  const 켠창 = Math.max(1, Math.min(총창, Math.round(총창 * 직원 / 다음)));
+  const 별관 = 단계i >= 3;
+
+  const p = [];
+  p.push(`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${b.이름}">`);
+  /* 땅선만 g 밖에 둔다. 안에 넣으면 건물이 솟을 때 땅까지 끌려 올라가
+     옆 풍경의 땅선과 어긋난다 (풍경은 이 애니메이션을 안 탄다) */
+  p.push(`<rect class="ground" x="0" y="${바닥}" width="${W}" height="2"/>`);
+  p.push(`<g class="rise">`);
+  p.push(`<ellipse class="cloud c1" cx="42" cy="28" rx="19" ry="7"/>`);
+  p.push(`<ellipse class="cloud c2" cx="163" cy="46" rx="14" ry="6"/>`);
+  if (별관) p.push(`<rect class="annex" x="${x0 - 30}" y="${바닥 - 74}" width="26" height="74" rx="3"/>`);
+  p.push(`<rect class="body" x="${x0}" y="${y0}" width="${b.w}" height="${건물h}" rx="4"/>`);
+  let n = 0;
+  for (let r = 0; r < b.층; r++) for (let c = 0; c < b.열; c++) {
+    const on = n < 켠창;
+    const wx = (x0 + 간격x * (c + 1) + 창w * c).toFixed(1);
+    const wy = y0 + 12 + r * 16;
+    p.push(`<rect class="win${on ? ' on' : ''}" x="${wx}" y="${wy}" width="${창w}" height="${창h}" rx="1.5"`
+         + (on ? ` style="--d:${(2.4 + (n % 5) * 0.7).toFixed(1)}s;--w:${(n % 7) * 0.4}s"` : '') + `/>`);
+    n++;
+  }
+  p.push(`<rect class="door" x="${x0 + b.w / 2 - 7}" y="${바닥 - 16}" width="14" height="16" rx="2"/>`);
+  p.push(`<rect class="sign" x="${x0 + b.w / 2 - 16}" y="${y0 - 9}" width="32" height="7" rx="3.5"/>`);
+  // 별관이 있으면 왼쪽 나무 자리가 겹친다
+  if (!별관) {
+    p.push(`<circle class="tree" cx="${x0 - 12}" cy="${바닥 - 9}" r="7"/>`);
+    p.push(`<rect class="trunk" x="${x0 - 13}" y="${바닥 - 5}" width="2" height="5"/>`);
+  }
+  p.push(`<circle class="tree" cx="${x0 + b.w + 11}" cy="${바닥 - 7}" r="5.5"/>`);
+  p.push(`<rect class="trunk" x="${x0 + b.w + 10}" y="${바닥 - 4}" width="2" height="4"/>`);
+  p.push(`</g>`);
+  p.push(`</svg>`);
+  return p.join('');
+}
+
+function drawPlay() {
+  const sc = $('screen');
+  sc.innerHTML = '';
+
+  const 고정 = el('div', 'stickytop');
+  const 스크롤 = el('div', 'scrollzone');
+
+  /* 건물을 오른쪽에, 말풍선을 왼쪽에 나란히 둔다.
+     말풍선을 건물 위에 겹치면 세로를 더 먹고, 스크롤을 내리면 안 보인다 */
+  const 그림줄 = el('div', 'artrow');
+  const side = el('div', 'artside');
+  /* 단계 이름과 직원 수는 상태바(#bar)가 이미 보여준다. 여기 또 쓰면 중복이고,
+     글씨가 풍경 위에 겹쳐 읽기도 나빠진다 */
+  const 풍경칸 = el('div', 'scenebox');
+  풍경칸.innerHTML = 풍경SVG(G.단계인덱스(S));
+  side.appendChild(풍경칸);
+  if (V.말풍선 && 대사[V.말풍선]) {
+    const bub = el('div', 'bubble');
+    bub.appendChild(el('span', 'who', V.말풍선));
+    bub.appendChild(el('span', 'say', 대사[V.말풍선]));
+    side.appendChild(bub);
+  }
+  const art = el('div', 'stage-art');
+  art.innerHTML = 사무실SVG(G.단계인덱스(S), S.직원);
+  그림줄.appendChild(side);
+  그림줄.appendChild(art);
+  고정.appendChild(그림줄);
+
+  // 분기 4칸
+  const plan = el('div', 'plan');
+  const hd = el('div', 'hd');
+  hd.appendChild(el('span', null, '올해 계획'));
+  hd.appendChild(el('span', null, V.진행 + ' / 4 분기'));
+  plan.appendChild(hd);
+
+  const row = el('div', 'qrow');
+  for (let i = 0; i < 4; i++) {
+    const q = el('div', 'q' + (V.배치[i] ? ' filled' : '')
+                        + (i < V.진행 ? ' done' : '') + (i === V.진행 ? ' cur' : ''));
+    q.appendChild(el('span', 'qn', (i + 1) + '분기'));
+    if (V.배치[i]) q.appendChild(el('span', null, V.배치[i]));
+    else q.appendChild(el('span', 'empty', '—'));
+    if (i >= V.진행) q.onclick = () => { V.배치[i] = null; draw(); };
+    row.appendChild(q);
+  }
+  plan.appendChild(row);
+
+  const 다참 = V.배치.every(x => x);
+  const go = el('button', 'go', V.진행 === 0 ? '진행' : '이어서 진행');
+  go.disabled = !다참 || V.돌아가는중;
+  go.onclick = 진행;
+  plan.appendChild(go);
+  고정.appendChild(plan);
+  sc.appendChild(고정);
+
+  // 업무 / 인력
+  for (const [제목, 목록] of [['업무관리', 업무들], ['인력관리', 설정.인력]]) {
+    const grp = el('div', 'grp');
+    grp.appendChild(el('div', 'gh', 제목));
+    const cs = el('div', 'cards');
+    for (const slot of 목록) {
+      const st = G.선택가능(S, slot);
+      const c = el('button', 'card' + (st.가능 ? '' : ' lock'));
+      c.appendChild(el('span', 't', slot));
+      // 배치판은 수치를 공개한다 (기획 §9 — 매달 반복이라 인과를 알아야 한다)
+      c.appendChild(el('span', 'e', st.가능 ? 효과글(slot)
+                        : st.사유 ? st.사유 : 금액(st.비용) + ' 필요'));
+      c.disabled = !st.가능;
+      if (st.가능) c.onclick = () => {
+        const i = V.배치.findIndex((x, j) => !x && j >= V.진행);
+        if (i < 0) return;
+        V.배치[i] = slot;
+        말풍선띄우기(slot);
+        draw();
+      };
+      cs.appendChild(c);
+    }
+    grp.appendChild(cs);
+    스크롤.appendChild(grp);
+  }
+  sc.appendChild(스크롤);
+}
+
+/* ========================= 팝업 ========================= */
+function 팝업(build) {
+  const p = $('pop'); p.innerHTML = ''; build(p);
+  $('overlay').classList.add('on');
+}
+function 팝업닫기() { $('overlay').classList.remove('on'); }
+
+function 지표줄(전, 후) {
+  const d = el('div', 'deltas');
+  const 항목 = [['돈','돈'],['평판','평판'],['팀분위기','분위기'],['실력','실력'],['직원','직원']];
+  for (const [nm, k] of 항목) {
+    const v = 후[k] - 전[k];
+    if (!v) continue;
+    const t = k === '돈' ? 금액(v) : (v > 0 ? '+' : '') + v + (k === '직원' ? '명' : '');
+    d.appendChild(el('span', 'dl ' + (v > 0 ? 'up' : 'dn'),
+                     nm + ' ' + (v > 0 && k !== '돈' ? '▲' : v < 0 && k !== '돈' ? '▼' : '') + t));
+  }
+  return d;
+}
+
+/* ========================= 대화형 이벤트 ========================= */
+/* story.js 의 글이 객체 배열이면 메신저 모양으로, 문자열 배열이면 예전 평문으로 그린다.
+   지금은 이벤트 15개가 전부 대화형이다. 평문 경로는 지우지 않고 남겨둔다 —
+   위기 이벤트를 급히 문자열로 적어도 화면이 죽지 않아야 한다 (uitest.js 가 두 경로를 다 검사한다) */
+const 대화형 = e => Array.isArray(e.글) && e.글.length > 0 && typeof e.글[0] === 'object';
+
+const 톡간격 = 500;            // ms — 메시지 하나당
+let 톡타이머 = [];
+function 톡정지() { for (const t of 톡타이머) clearTimeout(t); 톡타이머 = []; }
+/* 줄이 붙을 때마다 팝업을 맨 아래로 민다. 안 하면 새 말풍선이 접힌 영역에서 조용히 쌓인다 */
+function 팝맨아래() { const p = $('pop'); if (p) p.scrollTop = p.scrollHeight; }
+
+function 말풍선줄(줄) {
+  const 화자 = 줄.화자;
+  if (!화자) return el('div', 'ln nar', 줄.말);        // 나레이션 · 효과음
+  const ln = el('div', 'ln ' + (화자 === '나' ? 'me' : 'you'));
+  if (화자 !== '나') ln.appendChild(el('div', 'nm', 화자));
+  ln.appendChild(el('div', 'bb', 줄.말));
+  return ln;
+}
+
+/* 줄을 톡간격 마다 하나씩 붙이고, 다 붙으면 done() */
+function 톡뿌리기(box, 줄들, done) {
+  if (!톡애니켜짐()) {
+    for (const 줄 of 줄들) box.appendChild(말풍선줄(줄));
+    팝맨아래(); done(); return;
+  }
+  let i = 0;
+  const 다음 = () => {
+    if (i >= 줄들.length) { done(); return; }
+    box.appendChild(말풍선줄(줄들[i++]));
+    팝맨아래();
+    톡타이머.push(setTimeout(다음, 톡간격));
+  };
+  다음();                                              // 첫 줄은 바로
+}
+
+function 대화이벤트팝업(e, done) {
+  톡정지();
+  팝업(p => {
+    const chat = el('div', 'chat');
+    p.appendChild(chat);
+
+    const 줄들 = e.글.slice();
+    if (e.연쇄 && e.연쇄.갈래) {                        // 앞 선택에 따라 달라지는 도입부
+      const 앞 = e.연쇄.갈래[S.갈래[e.연쇄.출처]];
+      if (앞) 줄들.unshift({ 말: 앞 });
+    }
+
+    const opts = el('div', 'opts');
+    /* 선택지는 마지막 줄이 다 뜬 뒤에 붙인다.
+       먼저 붙이면 0.5초씩 오는 대사를 안 읽고 눌러버린다 */
+    톡뿌리기(chat, 줄들, () => {
+      for (const c of G.선택지순서(S, '이벤트:' + e.id, e.선택)) {
+        const 가 = G.선택지가능(S, c);
+        const b = el('button', 가.가능 ? '' : 'lock');
+        b.appendChild(el('span', null, c.글));
+        if (!가.가능) {
+          const nm = { 평판:'평판', 분위기:'팀분위기', 실력:'실력' }[가.지표] || 가.지표;
+          b.appendChild(el('span', 'lk', nm + ' ' + 가.필요 + ' 이상 필요'));
+          b.disabled = true;
+        } else {
+          b.onclick = () => {
+            const 전 = { 돈:S.돈, 평판:S.평판, 분위기:S.분위기, 실력:S.실력, 직원:S.직원 };
+            const 고른 = G.이벤트적용(S, e, (ev, 열린) => 열린.indexOf(c));
+            opts.innerHTML = '';                       // 선택지는 사라지고
+            대화결과(chat, 고른, 전, done);              // 대화가 그대로 이어진다
+          };
+        }
+        opts.appendChild(b);
+      }
+      p.appendChild(opts);
+      팝맨아래();
+    });
+  });
+}
+
+/* 고른 선택지 = 내 말풍선, 결과 = 상대 답장.
+   결과화자가 없으면 나레이션으로 떨어진다 (결과문이 늘 상대 대사는 아니다) */
+function 대화결과(chat, 고른, 전, done) {
+  const 줄들 = [{ 화자:'나', 말:고른.글 }];
+  if (고른.결과) 줄들.push({ 화자: 고른.결과화자 || null, 말: 고른.결과 });
+  톡뿌리기(chat, 줄들, () => {
+    const p = $('pop');
+    p.appendChild(지표줄(전, S));
+    const row = el('div', 'btnrow');
+    const b = el('button', null, '확인');
+    b.onclick = () => { 톡정지(); 팝업닫기(); done(); };
+    row.appendChild(b); p.appendChild(row);
+    팝맨아래(); drawBar();
+  });
+}
+
+/* 이벤트 — 선택 전엔 문구만, 선택 후엔 서술 + 지표 변화를 전부 공개 (규칙 §4-2) */
+function 이벤트팝업(e, done) {
+  if (대화형(e)) { 대화이벤트팝업(e, done); return; }
+  평문이벤트팝업(e, done);
+}
+
+function 평문이벤트팝업(e, done) {
+  팝업(p => {
+    if (e.연쇄 && e.연쇄.갈래) {
+      const 갈 = S.갈래[e.연쇄.출처];
+      const 줄 = e.연쇄.갈래[갈];
+      if (줄) p.appendChild(el('div', 'desc muted', 줄));
+    }
+    p.appendChild(el('div', 'desc', e.글.join('\n')));
+    const box = el('div', 'opts');
+    for (const c of G.선택지순서(S, '이벤트:' + e.id, e.선택)) {
+      const 가 = G.선택지가능(S, c);
+      const b = el('button', 가.가능 ? '' : 'lock');
+      b.appendChild(el('span', null, c.글));
+      if (!가.가능) {
+        const nm = { 평판:'평판', 분위기:'팀분위기', 실력:'실력' }[가.지표] || 가.지표;
+        b.appendChild(el('span', 'lk', nm + ' ' + 가.필요 + ' 이상 필요'));
+        b.disabled = true;
+      } else {
+        b.onclick = () => {
+          const 전 = { 돈:S.돈, 평판:S.평판, 분위기:S.분위기, 실력:S.실력, 직원:S.직원 };
+          const 고른 = G.이벤트적용(S, e, (ev, 열린) => 열린.indexOf(c));
+          결과팝업(고른, 전, done);
+        };
+      }
+      box.appendChild(b);
+    }
+    p.appendChild(box);
+  });
+}
+
+function 결과팝업(고른, 전, done) {
+  팝업(p => {
+    p.appendChild(el('div', 'desc center', '「' + 고른.글 + '」'));
+    const r = el('div', 'res', 고른.결과 || '');
+    r.appendChild(지표줄(전, S));
+    p.appendChild(r);
+    const row = el('div', 'btnrow');
+    const b = el('button', null, '확인');
+    b.onclick = () => { 팝업닫기(); done(); };
+    row.appendChild(b); p.appendChild(row);
+    drawBar();
+  });
+}
+
+function 진단서팝업(단계이름, d, done) {
+  팝업(p => {
+    p.appendChild(el('h2', null,단계이름 + ' 달성!'));
+    const tb = el('div', 'typebox');
+    tb.appendChild(el('div', 'typename', d.유형));
+    tb.appendChild(el('div', 'typesub',
+      /* 가중치가 0.3 같은 소수라 표본이 18.400000000000002 로 나온다. 소수 한 자리로 자른다 */
+      '표본 ' + 표본표기(d.최소표본) + ' · 확신도 ' + Math.round(d.평균확신 * 100) + '%'));
+    p.appendChild(tb);
+    const h = 변천사();
+    if (h.length > 1) {
+      p.appendChild(el('div', 'desc center muted',
+        h.map(r => r.단계 + ' ' + r.유형).join('  →  ')));
+    }
+    const row = el('div', 'btnrow');
+    const b = el('button', null, '계속');
+    b.onclick = () => { 팝업닫기(); done(); };
+    row.appendChild(b); p.appendChild(row);
+  });
+}
+
+/* ========================= 진행 루프 =========================
+   기획 §2 — 연초에 4칸을 미리 채우고 [진행].
+   1분기씩 흘러가며 이벤트가 뜨면 멈춘다. 멈춘 뒤 이어받는 구조라 전부 콜백이다
+   ============================================================ */
+function 진행() {
+  if (V.돌아가는중) return;
+  V.돌아가는중 = true;
+  다음분기();
+}
+
+/* 인력관리 칸은 트리거 이벤트를 먼저 묻는다.
+   runQuarter 가 동기라 중간에 못 멈춘다 → 답을 미리 받아두고 replay 하는 choose 를 넘긴다.
+   이게 없으면 choose 가 늘 0을 돌려줘 전부 T 로 측정된다 (실제로 F 가 0 이었다) */
+function 트리거묻기(slot, done) {
+  // ★ 로직(인력처리)과 똑같은 순서를 받아야 한다. 여기서 순서횟수를 올리면 안 된다 —
+  //   올리는 건 로직이 고른 직후 한 번뿐이다 (선택지순서 주석 참고)
+  const opts = G.트리거[slot] && G.선택지순서(S, '트리거:' + slot, G.트리거[slot]);
+  // 무산될 칸이면 묻지 않는다. 고르게 해놓고 "돈이 모자라 무산됐다" 를 띄우면 억울하다
+  if (!opts || !G.선택가능(S, slot).가능) { done(() => 0); return; }
+  const 상황 = G.트리거상황[slot] || [];
+  톡정지();
+  팝업(p => {
+    const chat = el('div', 'chat');
+    p.appendChild(chat);
+    const box = el('div', 'opts');
+    /* 이벤트와 같다 — 마지막 줄이 다 뜬 뒤에 선택지를 붙인다 */
+    톡뿌리기(chat, 상황, () => {
+      opts.forEach((o, i) => {
+        const b = el('button', null, o.글);   // 수치는 숨긴다 (규칙 §4-2)
+        b.onclick = () => {
+          box.innerHTML = '';
+          chat.appendChild(말풍선줄({ 화자:'나', 말: o.글 }));
+          팝맨아래();
+          // 채용만 두 번 묻는다. 첫 질문은 T/F 축, 두 번째는 실제 채용 방침이다
+          if (slot !== '채용') { 톡정지(); 팝업닫기(); done(() => i); return; }
+          방침묻기(p, chat, m => { 톡정지(); 팝업닫기(); done(sl => sl === '채용방침' ? m : i); });
+        };
+        box.appendChild(b);
+      });
+      p.appendChild(box);
+      팝맨아래();
+    });
+  });
+}
+
+/* 배치판 쪽 선택이라 수치를 공개한다 (규칙 §1 — 수치로 물으면 최적화가 측정되므로 가중치도 0.3).
+   앞 질문이 이미 '경력/신입' 이라 여기서 또 경력/신입을 물으면 같은 걸 두 번 묻는 것처럼 보인다.
+   → 실력/인성 으로 나눈다. 실력위주가 T 쪽이고 신입 실력 희석이 덜하다 (runQuarter 의 실력위주) */
+function 방침묻기(p, chat, done) {
+  톡뿌리기(chat, [{ 화자:'나', 말:'어떤 사람을 뽑을까?' }], () => {
+    const box = el('div', 'opts');
+    ['실력 위주로 뽑는다', '인성 위주로 뽑는다'].forEach((t, i) => {
+      const b = el('button', null, t);
+      b.onclick = () => done(i);
+      box.appendChild(b);
+    });
+    p.appendChild(box);
+    팝맨아래();
+  });
+}
+
+function 다음분기() {
+  if (V.진행 >= 4) { 연말(); return; }
+  const slot = V.배치[V.진행];
+  트리거묻기(slot, choose => 분기실행(slot, choose));
+}
+
+function 분기실행(slot, choose) {
+  const prevIdx = G.단계인덱스(S);
+  const 전 = { 돈:S.돈, 평판:S.평판, 분위기:S.분위기, 실력:S.실력, 직원:S.직원 };
+
+  G.runQuarter(S, slot, choose, Math.random);
+  V.진행++;
+  drawBar(); draw(); save();
+
+  /* 승급 확인은 어떤 경로로도 건너뛰면 안 된다.
+     기준을 "지금 단계" 가 아니라 "이미 발급한 진단서 수" 로 잡는다.
+     현재 상태에서 다시 계산하면, 한 번이라도 확인을 놓친 순간
+     다음 분기엔 이미 그 단계라서 그 진단서가 영영 안 나온다 */
+  const 승급처리 = 그다음 => {
+    const up = G.승급확인(S, S.승급이력.length);
+    if (!up) { 그다음(); return; }
+    const d = S.승급이력[S.승급이력.length - 1];
+    변천사추가({ 단계: up.이름, 유형: d.진단, 분기: S.분기 });
+    진단서팝업(up.이름, d.상세, () => { save(); 그다음(); });
+  };
+  const 이어서 = () => 승급처리(다음분기);
+  // 계획을 다시 짜면 배치판으로 돌아가지만, 승급 확인은 그대로 거친다
+  /* 이벤트 뒤에 "계획을 바꾸시겠습니까?" 를 묻던 자리다 (2026-09-13 제거).
+     [그대로 간다] 는 1탭, [다시 짠다] 는 최대 5탭이라 귀찮은 사람이 전부 J 로 측정됐다
+     (실측: P 성향이 이벤트를 P 로 골라도 J 15 : P 3 으로 뒤집혔다).
+     J/P 는 이제 이벤트 선택지로만 잰다 — 이벤트 16~21 이 그 표본을 대신 받는다 */
+  const 다음 = () => {
+    const ev = G.이벤트뽑기(S, Math.random);
+    if (ev) 이벤트팝업(ev, 이어서);
+    else 이어서();
+  };
+
+  // 인력관리는 선택을 물었으니 결과도 보여준다 (규칙 §4-2)
+  if (!설정.업무[slot]) 결과팝업({ 글: slot, 결과: S.무산 && S.로그.length
+        && S.로그[S.로그.length - 1].무산 === slot ? '돈이 모자라 무산됐다.' : '' }, 전, 다음);
+  else 다음();
+}
+
+function 연말() {
+  V.진행 = 0;
+  V.배치 = [null, null, null, null];
+  V.돌아가는중 = false;
+  draw(); save();
+}
+
+/* ========================= 보고서 =========================
+   기획 §1 "그래프로 되어있는 수치를 숫자로 표기" · §8 진단서
+   플레이 중에는 중립 라벨로 노출한다 (E/I 대신 "대외 활동 비중")
+   → 유형을 알고 조작하는 걸 막는다
+   ========================================================== */
+const 중립라벨 = {
+  ei: ['대외 활동', '밖으로', '안에서'],
+  sn: ['판단 기준', '지금',   '나중'],
+  tf: ['사람 결정', '기준',   '관계'],
+  jp: ['일정 운영', '미리',   '그때그때'],
+};
+
+function drawReport() {
+  const sc = $('screen'); sc.innerHTML = '';
+  const d = G.diagnose(S);
+  const 발급됨 = S.승급이력.length > 0;
+
+  sc.appendChild(el('h3', null, '진단'));
+  if (발급됨) {
+    const tb = el('div', 'typebox');
+    tb.appendChild(el('div', 'typename', d.유형));
+    tb.appendChild(el('div', 'typesub', '확신도 ' + Math.round(d.평균확신 * 100) + '%'));
+    sc.appendChild(tb);
+  } else {
+    sc.appendChild(el('div', 'desc center muted',
+      '아직 진단서가 없습니다.\n중소기업이 되면 첫 진단서가 나옵니다.'));
+  }
+
+  // 축은 중립 라벨로만 보여준다
+  for (const k of ['ei','sn','tf','jp']) {
+    const a = d[k], [nm, 왼, 오] = 중립라벨[k];
+    const r = el('div', 'axrow');
+    r.appendChild(el('span', 'ax', nm));
+    const bar = el('span', 'bar'), i = el('i');
+    i.style.left = '0'; i.style.width = (a.비율 * 100) + '%';
+    bar.appendChild(i); r.appendChild(bar);
+    r.appendChild(el('span', 'lb', a.표본 < 설정.판정최소표본
+      ? '표본 부족' : (a.비율 >= 0.5 ? 왼 : 오) + ' ' + Math.round(Math.max(a.비율, 1 - a.비율) * 100) + '%'));
+    sc.appendChild(r);
+  }
+
+  {
+    const j = G.승급판정(S);
+    if (j.항목) {
+      sc.appendChild(el('h3', null, '다음 단계 — ' + j.다음));
+      const t0 = el('table');
+      for (const x of j.항목) {
+        const tr = el('tr');
+        tr.appendChild(el('th', null, x.이름));
+        const 현 = x.이름 === '매출' ? 금액(x.현재) : x.현재 + (x.이름 === '연차' ? '분기' : '명');
+        const 필 = x.이름 === '매출' ? 금액(x.필요) : x.필요 + (x.이름 === '연차' ? '분기' : '명');
+        tr.appendChild(el('td', 'n', 현 + ' / ' + 필 + (x.현재 >= x.필요 ? '  ✓' : '')));
+        t0.appendChild(tr);
+      }
+      sc.appendChild(t0);
+    }
+  }
+
+  sc.appendChild(el('h3', null, '회사'));
+  const t = el('table');
+  const 연차 = Math.floor(S.분기 / 4) + 1;
+  const rows = [
+    ['연차', 연차 + '년차 (' + S.분기 + '분기)'],
+    ['단계', G.단계(S).이름],
+    ['돈', 금액(S.돈)],
+    ['최저 잔고', 금액(S.최저돈)],
+    ['평판', S.평판], ['팀 분위기', S.분위기], ['실력', S.실력],
+    ['직원', S.직원 + '명'],
+    ['다음 분기 매출', 금액(G.매출(S, '개발')) + ' (개발 기준)'],
+    ['다음 분기 지출', 금액(G.지출(S))],
+  ];
+  for (const [k, v] of rows) {
+    const tr = el('tr');
+    tr.appendChild(el('th', null, k));
+    tr.appendChild(el('td', 'n', String(v)));
+    t.appendChild(tr);
+  }
+  sc.appendChild(t);
+
+  const h = 변천사();
+  if (h.length) {
+    sc.appendChild(el('h3', null, '변천사'));
+    const t2 = el('table');
+    for (const r of h) {
+      const tr = el('tr');
+      tr.appendChild(el('th', null, r.단계));
+      tr.appendChild(el('td', null, r.유형));
+      tr.appendChild(el('td', 'n', Math.floor(r.분기 / 4) + 1 + '년차'));
+      t2.appendChild(tr);
+    }
+    sc.appendChild(t2);
+  }
+
+  const row = el('div', 'btnrow');
+  if (발급됨) {
+    const b = el('button', null, '결과 공유하기');
+    b.onclick = 공유;
+    row.appendChild(b);
+  }
+  if (변천사().length) {
+    const r = el('button', 'ghost', '기록 초기화');
+    r.onclick = () => 팝업(p => {
+      p.appendChild(el('h2', null, '진단서 기록을 지울까요?'));
+      p.appendChild(el('div', 'desc center',
+        '지금까지 받은 진단서 ' + 변천사().length + '장이 사라집니다.\n'
+        + '진행 중인 회사는 그대로입니다.'));
+      const rr = el('div', 'btnrow');
+      const no = el('button', 'ghost', '아니요'); no.onclick = 팝업닫기;
+      const yes = el('button', null, '지우기');
+      yes.onclick = () => { 변천사삭제(); 팝업닫기(); draw(); };
+      rr.appendChild(no); rr.appendChild(yes); p.appendChild(rr);
+    });
+    row.appendChild(r);
+  }
+  if (row.children.length) sc.appendChild(row);
+}
+
+/* 기획 §11 공유 — 카카오 SDK 는 아직. 지금은 폴백(클립보드)만 */
+function 공유() {
+  const d = G.diagnose(S);
+  const txt = '사장으로 살아남기 — 내 유형은 ' + d.유형 + '\n'
+            + G.단계(S).이름 + ' · ' + S.직원 + '명 · ' + 금액(S.돈) + '\n'
+            + location.href;
+  const ok = () => 팝업(p => {
+    p.appendChild(el('h2', null, '복사했습니다'));
+    p.appendChild(el('div', 'desc center', txt));
+    const row = el('div', 'btnrow'); const b = el('button', null, '닫기');
+    b.onclick = 팝업닫기; row.appendChild(b); p.appendChild(row);
+  });
+  if (navigator.clipboard) navigator.clipboard.writeText(txt).then(ok, ok);
+  else ok();
+}
+
+/* ========================= 설정 ========================= */
+function drawSettings() {
+  const sc = $('screen'); sc.innerHTML = '';
+  sc.appendChild(el('h3', null, '설정'));
+
+  const 옵 = el('div', 'opt');
+  const 설명 = el('div', 't');
+  설명.appendChild(el('b', null, '이벤트 애니메이션'));
+  설명.appendChild(el('span', null, 모션싫음()
+    ? '브라우저에 "움직임 줄이기" 가 켜져 있어 끌 수 없습니다.'
+    : '이벤트 대화가 한 줄씩 나타납니다. 끄면 한 번에 다 보입니다.'));
+  옵.appendChild(설명);
+  const 켬 = 톡애니켜짐();
+  const tg = el('button', 켬 ? 'on' : '', 켬 ? '켬' : '끔');
+  if (모션싫음()) tg.disabled = true;
+  else tg.onclick = () => { 옵션.톡애니 = (옵션.톡애니 === false); 옵션저장(); drawSettings(); };
+  옵.appendChild(tg);
+  sc.appendChild(옵);
+
+  const row = el('div', 'btnrow');
+  const b = el('button', 'ghost', '처음부터 다시하기');
+  b.onclick = () => 팝업(p => {
+    p.appendChild(el('h2', null, '처음부터 다시할까요?'));
+    p.appendChild(el('div', 'desc center',
+      '지금 회사는 사라집니다.\n진단서 변천사는 남습니다.'));
+    const r = el('div', 'btnrow');
+    const no = el('button', 'ghost', '아니요'); no.onclick = 팝업닫기;
+    const yes = el('button', null, '다시하기');
+    yes.onclick = () => { 저장삭제(); 팝업닫기(); 새게임(); };
+    r.appendChild(no); r.appendChild(yes); p.appendChild(r);
+  });
+  row.appendChild(b);
+  sc.appendChild(row);
+
+  const n = el('div', 'savenote' + (저장막힘 ? ' warn' : ''));
+  n.appendChild(el('b', null, 저장막힘 ? '저장이 막혀 있습니다' : '자동 저장됩니다'));
+  n.appendChild(el('span', null, 저장막힘
+    ? '프라이빗 브라우징이면 창을 닫을 때 진행이 사라집니다. 일반 창에서 열어주세요.'
+    : '이 브라우저에 저장됩니다 (localStorage / ' + KEY + ').'));
+  sc.appendChild(n);
+}
+
+/* ========================= 타이틀 · 인트로 ========================= */
+function drawTitle() {
+  const app = $('app');
+  app.innerHTML = '';
+  const w = el('div'); w.id = 'title';
+  w.appendChild(el('h1', null, '사장으로 살아남기'));
+  w.appendChild(el('div', 'tag', 'IT 회사를 키우는 분기 선택형 타이쿤'));
+  const menu = el('div', 'menu');
+  const saved = load();
+  if (saved) {
+    const c = el('button', 'primary');
+    c.appendChild(el('span', null, '이어하기'));
+    c.appendChild(el('span', 's', Math.floor(saved.S.분기 / 4) + 1 + '년차 · 직원 ' + saved.S.직원 + '명'));
+    c.onclick = () => { S = saved.S; V.배치 = saved.배치; V.진행 = saved.진행;
+                        V.화면 = 'play'; draw(); };
+    menu.appendChild(c);
+  }
+  const n = el('button', saved ? '' : 'primary', '새로 시작');
+  n.onclick = () => { 저장삭제(); V.화면 = 'intro'; draw(); };
+  menu.appendChild(n);
+  w.appendChild(menu);
+  const h = 변천사();
+  w.appendChild(el('div', 'foot', h.length ? '지금까지 받은 진단서 ' + h.length + '장' : ''));
+  app.appendChild(w);
+}
+
+function drawIntro() {
+  const app = $('app'); app.innerHTML = '';
+  const w = el('div'); w.id = 'intro';
+  w.appendChild(el('div', 'line',
+    '열심히 회사생활을 하며 돈을 모은 00씨!\n이제 나도 회사를 차려보겠어!\n'
+    + '가진 돈은 3천만원...\n나 잘할 수 있을까...??'));
+  const b = el('button', null, '창업하기');
+  b.onclick = 새게임;
+  w.appendChild(b);
+  app.appendChild(w);
+}
+
+function 새게임() {
+  S = G.newGame();
+  V.배치 = [null, null, null, null];
+  V.진행 = 0; V.돌아가는중 = false;
+  V.화면 = 'play'; V.탭 = '회사';
+  save(); draw();
+}
+
+/* ========================= 그리기 진입점 ========================= */
+function drawTabs() {
+  const t = $('tabs'); t.innerHTML = '';
+  for (const nm of ['회사','보고서','설정']) {
+    const b = el('button', V.탭 === nm ? 'on' : '', nm);
+    b.onclick = () => { V.탭 = nm; draw(); };
+    t.appendChild(b);
+  }
+}
+
+function draw() {
+  if (V.화면 === 'title') { drawTitle(); return; }
+  if (V.화면 === 'intro') { drawIntro(); return; }
+  // 타이틀/인트로가 #app 을 통째로 갈아치우므로 되돌려놓는다
+  if (!$('bar')) {
+    $('app').innerHTML = '<div id="bar"></div><div id="screen"></div><div id="tabs"></div>';
+  }
+  drawBar();
+  const sc = $('screen');
+  if (V.탭 === '회사') { sc.classList.add('play'); drawPlay(); }
+  else { sc.classList.remove('play');
+         if (V.탭 === '보고서') drawReport(); else drawSettings(); }
+  drawTabs();
+}
+
+/* 저장이 실제로 되는지 먼저 찔러본다 — 있는 척하다 쓰기에서 던지는 환경이 있다 */
+try { localStorage.setItem(KEY + '__probe', '1'); localStorage.removeItem(KEY + '__probe'); }
+catch (e) { 저장막힘 = true; }
+
+draw();
+
+/* 테스트 하네스가 내부 상태를 들여다볼 수 있게 열어둔다 (브라우저에서도 무해) */
+window.__ui = { get S(){ return S; }, V, draw, 사무실SVG, 풍경SVG };
+</script>
+</html>
